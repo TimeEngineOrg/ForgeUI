@@ -1,0 +1,13 @@
+build/
+bin/
+out/
+.vs/
+*.user
+*.vcxproj*
+*.sln
+*.obj
+*.lib
+*.exe
+*.pdb
+*.ilk
+*.exp
