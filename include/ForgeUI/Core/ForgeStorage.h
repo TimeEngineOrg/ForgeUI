@@ -3,7 +3,6 @@
 #include "ForgeTypes.h"
 #include <cstdint>
 #include <cstddef>
-#include <span>
 
 namespace forge {
 

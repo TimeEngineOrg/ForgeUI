@@ -25,6 +25,7 @@ void RegisterTest(const std::string& name, std::function<bool()> func) {
     bool Test_##name()
 
 int main() {
+
     size_t passed = 0;
     size_t failed = 0;
     auto& tests = GetTestRegistry();

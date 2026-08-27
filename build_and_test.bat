@@ -70,13 +70,13 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo ================= Running Tests =================
-if exist "%BUILD_DIR%\tests\Release\forge_tests.exe" (
-    "%BUILD_DIR%\tests\Release\forge_tests.exe"
-) else if exist "%BUILD_DIR%\tests\forge_tests.exe" (
-    "%BUILD_DIR%\tests\forge_tests.exe"
+if exist "%BUILD_DIR%\tests\Release\ForgeCoreTests.exe" (
+    "%BUILD_DIR%\tests\Release\ForgeCoreTests.exe"
+) else if exist "%BUILD_DIR%\tests\ForgeCoreTests.exe" (
+    "%BUILD_DIR%\tests\ForgeCoreTests.exe"
 )
 echo =================================================
 echo.
 
-pause
+if "%~1" neq "--no-pause" pause
 endlocal

@@ -2,7 +2,6 @@
 
 #include "ForgeTypes.h"
 #include <string_view>
-#include <span>
 
 namespace forge {
 

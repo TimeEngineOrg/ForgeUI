@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstring>
 #include <string_view>
-#include <span>
 #include <type_traits>
 #include <new>
 
@@ -29,13 +28,6 @@ public:
         void* ptr = Allocate(sizeof(T), alignof(T));
         if (!ptr) return nullptr;
         return ::new (ptr) T(static_cast<Args&&>(args)...);
-    }
-
-    template <typename T>
-    std::span<T> AllocateSpan(size_t count) noexcept {
-        void* ptr = Allocate(sizeof(T) * count, alignof(T));
-        if (!ptr) return {};
-        return std::span<T>(static_cast<T*>(ptr), count);
     }
 
     std::string_view DuplicateString(std::string_view str) noexcept;
