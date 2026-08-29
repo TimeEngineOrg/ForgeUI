@@ -3,28 +3,33 @@
 
 namespace forge {
 
-namespace {
-thread_local ForgeContext* g_currentContext = nullptr;
-}
+static ForgeContext* g_CurrentContext = nullptr;
 
 ForgeContext::ForgeContext() noexcept
-    : m_arena(8 * 1024 * 1024) {
-    if (!g_currentContext) {
-        g_currentContext = this;
-    }
+    : m_storage()
+    , m_arena(8 * 1024 * 1024)
+    , m_idStack()
+    , m_input()
+    , m_drawList()
+    , m_font()
+    , m_frameIndex(0)
+    , m_rootWidth(1920.0f)
+    , m_rootHeight(1080.0f) {
+    m_drawList.Initialize(&m_arena);
+    m_font.Initialize(&m_arena);
 }
 
 void ForgeContext::BeginFrame() noexcept {
+    m_frameIndex++;
     m_storage.Reset();
     m_arena.Reset();
     m_idStack.Reset();
-    ++m_frameIndex;
+    m_drawList.Reset();
+    m_input.ResetFrameDeltas();
 }
 
 void ForgeContext::EndFrame() noexcept {
-    if (m_rootWidth > 0.0f && m_rootHeight > 0.0f) {
-        ComputeLayout(m_rootWidth, m_rootHeight);
-    }
+    ComputeLayout(m_rootWidth, m_rootHeight);
 }
 
 void ForgeContext::ComputeLayout(float rootWidth, float rootHeight) noexcept {
@@ -35,7 +40,7 @@ void ForgeContext::ComputeLayout(float rootWidth, float rootHeight) noexcept {
 
 uint32_t ForgeContext::Begin(std::string_view name, const ForgeElementConfig& config) noexcept {
     ForgeID id = m_idStack.GetID(name);
-    m_idStack.Push(id);
+    m_idStack.Push(name);
     return m_storage.BeginElement(id, config);
 }
 
@@ -45,8 +50,8 @@ uint32_t ForgeContext::Begin(ForgeID id, const ForgeElementConfig& config) noexc
 }
 
 void ForgeContext::End() noexcept {
-    m_storage.EndElement();
     m_idStack.Pop();
+    m_storage.EndElement();
 }
 
 uint32_t ForgeContext::Element(std::string_view name, const ForgeElementConfig& config) noexcept {
@@ -68,17 +73,14 @@ ForgeContext* CreateContext() noexcept {
 
 void DestroyContext(ForgeContext* ctx) noexcept {
     delete ctx;
-    if (g_currentContext == ctx) {
-        g_currentContext = nullptr;
-    }
 }
 
 void SetCurrentContext(ForgeContext* ctx) noexcept {
-    g_currentContext = ctx;
+    g_CurrentContext = ctx;
 }
 
 ForgeContext* GetCurrentContext() noexcept {
-    return g_currentContext;
+    return g_CurrentContext;
 }
 
 }

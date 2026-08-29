@@ -4,6 +4,9 @@
 #include "ForgeID.h"
 #include "ForgeArena.h"
 #include "ForgeStorage.h"
+#include "ForgeInput.h"
+#include "../Render/ForgeDrawList.h"
+#include "../Font/ForgeFont_MSDF.h"
 #include <string_view>
 
 namespace forge {
@@ -53,6 +56,15 @@ public:
     ForgeIDStack& GetIDStack() noexcept { return m_idStack; }
     const ForgeIDStack& GetIDStack() const noexcept { return m_idStack; }
 
+    ForgeInputState& GetInput() noexcept { return m_input; }
+    const ForgeInputState& GetInput() const noexcept { return m_input; }
+
+    ForgeDrawList& GetDrawList() noexcept { return m_drawList; }
+    const ForgeDrawList& GetDrawList() const noexcept { return m_drawList; }
+
+    ForgeFont_MSDF& GetFont() noexcept { return m_font; }
+    const ForgeFont_MSDF& GetFont() const noexcept { return m_font; }
+
     uint64_t FrameIndex() const noexcept { return m_frameIndex; }
     float RootWidth() const noexcept { return m_rootWidth; }
     float RootHeight() const noexcept { return m_rootHeight; }
@@ -61,6 +73,10 @@ private:
     ForgeStorage m_storage;
     ForgeArena m_arena;
     ForgeIDStack m_idStack;
+    ForgeInputState m_input;
+    ForgeDrawList m_drawList;
+    ForgeFont_MSDF m_font;
+
     uint64_t m_frameIndex = 0;
     float m_rootWidth = 0.0f;
     float m_rootHeight = 0.0f;
