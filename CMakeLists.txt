@@ -18,20 +18,26 @@ set(FORGE_SOURCES
     src/Core/ForgeStorage.cpp
     src/Core/ForgeContext.cpp
     src/Core/ForgeDirty.cpp
+    src/Core/ForgeJobSystem.cpp
     src/Layout/ForgeLayoutEngine.cpp
     src/Render/ForgeDrawList.cpp
     src/Render/ForgePipelines.cpp
     src/Font/ForgeFont_MSDF.cpp
     src/Widgets/ForgeWidgets.cpp
+    src/Backend/ForgeBackend_CPU.cpp
     src/Backend/ForgeBackend_OpenGL.cpp
 )
 
 add_library(ForgeUI STATIC ${FORGE_SOURCES})
 target_include_directories(ForgeUI PUBLIC include)
 
-add_executable(ForgeStandaloneDemo examples/Demo/main.cpp)
-target_link_libraries(ForgeStandaloneDemo PRIVATE ForgeUI)
-target_include_directories(ForgeStandaloneDemo PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
+add_executable(ForgeDemo examples/Demo/main.cpp)
+target_link_libraries(ForgeDemo PRIVATE ForgeUI)
+target_include_directories(ForgeDemo PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(ForgeStressTest examples/StressTest/main.cpp)
+target_link_libraries(ForgeStressTest PRIVATE ForgeUI)
+target_include_directories(ForgeStressTest PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
 
 enable_testing()
 add_subdirectory(tests)

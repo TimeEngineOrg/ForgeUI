@@ -1,4 +1,4 @@
-#include <iostream>
+#include <cstdio>
 #include <vector>
 #include <string>
 #include <functional>
@@ -17,20 +17,39 @@ void RegisterTest(const std::string& name, std::function<bool()> func) {
     GetTestRegistry().push_back({name, func});
 }
 
-#define FORGE_TEST(name) \
-    bool Test_##name(); \
-    struct Register_##name { \
-        Register_##name() { RegisterTest(#name, Test_##name); } \
-    } g_register_##name; \
-    bool Test_##name()
+extern void RegisterHashTests();
+extern void RegisterArenaTests();
+extern void RegisterStorageTests();
+extern void RegisterDirtyTests();
+extern void RegisterLayoutTests();
+extern void RegisterDrawListTests();
+extern void RegisterFontTests();
+extern void RegisterWidgetsTests();
+extern void RegisterJobSystemTests();
+extern void RegisterBackendTests();
 
 int main() {
+    GetTestRegistry().clear();
+    RegisterHashTests();
+    RegisterArenaTests();
+    RegisterStorageTests();
+    RegisterDirtyTests();
+    RegisterLayoutTests();
+    RegisterDrawListTests();
+    RegisterFontTests();
+    RegisterWidgetsTests();
+    RegisterJobSystemTests();
+    RegisterBackendTests();
 
     size_t passed = 0;
     size_t failed = 0;
     auto& tests = GetTestRegistry();
 
-    std::cout << "[RUN] Running " << tests.size() << " ForgeUI tests...\n";
+    std::printf("====================================================\n");
+    std::printf("            ForgeUI Core Test Suite                 \n");
+    std::printf("====================================================\n");
+    std::printf("[RUN] Running %zu ForgeUI unit tests...\n", tests.size());
+    std::fflush(stdout);
 
     for (const auto& test : tests) {
         bool ok = false;
@@ -41,14 +60,18 @@ int main() {
         }
 
         if (ok) {
-            std::cout << "  [PASS] " << test.name << "\n";
+            std::printf("  [PASS] %s\n", test.name.c_str());
             ++passed;
         } else {
-            std::cout << "  [FAIL] " << test.name << "\n";
+            std::printf("  [FAIL] %s\n", test.name.c_str());
             ++failed;
         }
+        std::fflush(stdout);
     }
 
-    std::cout << "\nTest Summary: " << passed << " passed, " << failed << " failed.\n";
+    std::printf("----------------------------------------------------\n");
+    std::printf("Test Summary: %zu passed, %zu failed.\n", passed, failed);
+    std::printf("====================================================\n");
+    std::fflush(stdout);
     return (failed == 0) ? 0 : 1;
 }

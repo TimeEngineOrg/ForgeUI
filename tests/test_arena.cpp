@@ -34,3 +34,7 @@ FORGE_TEST(Arena_AlignedAllocationAndReset) {
 
     return true;
 }
+
+void RegisterArenaTests() {
+    RegisterTest("Arena_AlignedAllocationAndReset", Test_Arena_AlignedAllocationAndReset);
+}

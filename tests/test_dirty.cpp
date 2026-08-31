@@ -39,3 +39,7 @@ FORGE_TEST(Dirty_BubbleUpAndCascade) {
 
     return true;
 }
+
+void RegisterDirtyTests() {
+    RegisterTest("Dirty_BubbleUpAndCascade", Test_Dirty_BubbleUpAndCascade);
+}

@@ -74,7 +74,7 @@ struct ForgeRect {
     }
 
     constexpr bool Overlaps(const ForgeRect& other) const noexcept {
-        return !(MaxX() < other.MinX() || MinX() > other.MaxX() || MaxY() < other.MinY() || MinY() > other.MaxY());
+        return !(MaxX() <= other.MinX() || MinX() >= other.MaxX() || MaxY() <= other.MinY() || MinY() >= other.MaxY());
     }
 
     constexpr ForgeRect Intersect(const ForgeRect& other) const noexcept {
@@ -178,6 +178,7 @@ struct ForgeDimension {
     static constexpr ForgeDimension Px(float px) noexcept { return {ForgeSizingMode::Fixed, px}; }
     static constexpr ForgeDimension Pct(float pct) noexcept { return {ForgeSizingMode::Percent, pct}; }
     static constexpr ForgeDimension FlexGrow(float weight = 1.0f) noexcept { return {ForgeSizingMode::Grow, weight}; }
+    static constexpr ForgeDimension Grow(float weight = 1.0f) noexcept { return {ForgeSizingMode::Grow, weight}; }
 };
 
 struct ForgeLayoutConfig {

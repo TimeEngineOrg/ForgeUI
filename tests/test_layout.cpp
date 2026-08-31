@@ -153,3 +153,10 @@ FORGE_TEST(Layout_ClippingAndCulling) {
 
     return true;
 }
+
+void RegisterLayoutTests() {
+    RegisterTest("Layout_FixedRowWithGapAndPadding", Test_Layout_FixedRowWithGapAndPadding);
+    RegisterTest("Layout_FlexGrowDistribution", Test_Layout_FlexGrowDistribution);
+    RegisterTest("Layout_ColumnAlignmentAndJustify", Test_Layout_ColumnAlignmentAndJustify);
+    RegisterTest("Layout_ClippingAndCulling", Test_Layout_ClippingAndCulling);
+}

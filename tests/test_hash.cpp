@@ -57,3 +57,8 @@ FORGE_TEST(Hash_ScopedIDStackHierarchy) {
 
     return true;
 }
+
+void RegisterHashTests() {
+    RegisterTest("Hash_CompileTimeAndRuntimeConsistency", Test_Hash_CompileTimeAndRuntimeConsistency);
+    RegisterTest("Hash_ScopedIDStackHierarchy", Test_Hash_ScopedIDStackHierarchy);
+}

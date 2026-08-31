@@ -10,6 +10,8 @@ set(TEST_SOURCES
     test_drawlist.cpp
     test_font.cpp
     test_widgets.cpp
+    test_jobsystem.cpp
+    test_backends.cpp
 )
 
 add_executable(ForgeCoreTests ${TEST_SOURCES})

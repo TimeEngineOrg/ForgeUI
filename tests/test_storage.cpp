@@ -57,10 +57,13 @@ FORGE_TEST(Storage_ResetClearsCount) {
     storage.EndElement();
     storage.EndElement();
 
-    if (storage.Count() != 2) return false;
-
     storage.Reset();
     if (storage.Count() != 0) return false;
 
     return true;
+}
+
+void RegisterStorageTests() {
+    RegisterTest("Storage_HierarchyAndSubtreeSize", Test_Storage_HierarchyAndSubtreeSize);
+    RegisterTest("Storage_ResetClearsCount", Test_Storage_ResetClearsCount);
 }

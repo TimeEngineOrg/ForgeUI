@@ -49,4 +49,7 @@ FORGE_TEST(Font_AtlasAllocator) {
     return true;
 }
 
-void RegisterFontTests() {}
+void RegisterFontTests() {
+    RegisterTest("Font_GlyphMetrics", Test_Font_GlyphMetrics);
+    RegisterTest("Font_AtlasAllocator", Test_Font_AtlasAllocator);
+}

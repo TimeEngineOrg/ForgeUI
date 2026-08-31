@@ -65,4 +65,7 @@ FORGE_TEST(DrawList_ClippingStack) {
     return true;
 }
 
-void RegisterDrawListTests() {}
+void RegisterDrawListTests() {
+    RegisterTest("DrawList_BatchConsolidation", Test_DrawList_BatchConsolidation);
+    RegisterTest("DrawList_ClippingStack", Test_DrawList_ClippingStack);
+}
