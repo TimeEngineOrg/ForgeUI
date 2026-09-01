@@ -11,3 +11,4 @@ out/
 *.pdb
 *.ilk
 *.exp
+*.ini
