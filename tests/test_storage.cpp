@@ -63,7 +63,24 @@ FORGE_TEST(Storage_ResetClearsCount) {
     return true;
 }
 
+FORGE_TEST(Storage_StackOverflowResilience) {
+    forge::ForgeStorage storage;
+
+    for (size_t i = 0; i < 200; ++i) {
+        storage.BeginElement(static_cast<forge::ForgeID>(i + 1), {});
+    }
+
+    if (storage.Count() != 200) return false;
+
+    for (size_t i = 0; i < 200; ++i) {
+        storage.EndElement();
+    }
+
+    return true;
+}
+
 void RegisterStorageTests() {
     RegisterTest("Storage_HierarchyAndSubtreeSize", Test_Storage_HierarchyAndSubtreeSize);
     RegisterTest("Storage_ResetClearsCount", Test_Storage_ResetClearsCount);
+    RegisterTest("Storage_StackOverflowResilience", Test_Storage_StackOverflowResilience);
 }

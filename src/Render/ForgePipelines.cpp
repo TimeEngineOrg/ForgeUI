@@ -60,16 +60,26 @@ void main() {
     vec2 p = v_UV - vec2(0.5);
     float alpha = 1.0;
 
-    if (shapeType > 0.5 && shapeType < 1.5) {
-        vec2 size = vec2(0.5);
-        float d = RoundedBoxSDF(p, size, cornerRadius * 0.05);
-        alpha = 1.0 - smoothstep(-0.01, 0.01, d);
+    if (shapeType < 0.5) {
+        alpha = 1.0;
+    } else if (shapeType > 0.5 && shapeType < 1.5) {
+        if (cornerRadius <= 0.5) {
+            alpha = 1.0;
+        } else {
+            vec2 halfSize = abs(dFdx(v_Pos)) + abs(dFdy(v_Pos));
+            vec2 quadSize = 1.0 / max(vec2(0.0001), vec2(dFdx(v_UV.x), dFdy(v_UV.y)));
+            float rNorm = clamp(cornerRadius / max(quadSize.x, quadSize.y), 0.0, 0.5);
+            vec2 size = vec2(0.5);
+            float d = RoundedBoxSDF(p, size, rNorm);
+            alpha = 1.0 - smoothstep(-0.01, 0.01, d);
+        }
     } else if (shapeType > 1.5 && shapeType < 2.5) {
         float d = length(p) - 0.5;
         alpha = 1.0 - smoothstep(-0.01, 0.01, d);
     } else if (shapeType > 2.5 && shapeType < 3.5) {
         vec2 size = vec2(0.5);
-        float d = abs(RoundedBoxSDF(p, size, cornerRadius * 0.05)) - borderWidth * 0.02;
+        float rNorm = clamp(cornerRadius * 0.01, 0.0, 0.5);
+        float d = abs(RoundedBoxSDF(p, size, rNorm)) - max(0.005, borderWidth * 0.005);
         alpha = 1.0 - smoothstep(0.0, 0.02, d);
     } else if (shapeType > 3.5 && shapeType < 4.5) {
         float d = length(p);
@@ -117,10 +127,6 @@ uniform sampler2D u_Texture;
 
 out vec4 o_Color;
 
-float Median(float r, float g, float b) {
-    return max(min(r, g), min(max(r, g), b));
-}
-
 void main() {
     vec2 clipMin = v_ClipRect.xy;
     vec2 clipMax = v_ClipRect.zw;
@@ -128,12 +134,13 @@ void main() {
     vec2 insideMax = step(v_Pos, clipMax);
     float clipMask = insideMin.x * insideMin.y * insideMax.x * insideMax.y;
 
-    vec3 msd = texture(u_Texture, v_UV).rgb;
-    float sd = Median(msd.r, msd.g, msd.b);
-    float screenPxDistance = (sd - 0.5) * fwidth(v_UV.x * 512.0);
-    float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+    vec4 texColor = texture(u_Texture, v_UV);
+    float alpha = texColor.a;
+    if (alpha <= 0.001) {
+        discard;
+    }
 
-    o_Color = vec4(v_Color.rgb, v_Color.a * opacity * clipMask);
+    o_Color = vec4(v_Color.rgb, v_Color.a * alpha * clipMask);
 }
 )";
 

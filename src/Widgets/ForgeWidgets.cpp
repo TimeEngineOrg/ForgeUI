@@ -9,6 +9,43 @@ static bool IsHovered(const ForgeRect& rect, const ForgeVec2& mousePos) {
     return rect.Contains(mousePos);
 }
 
+static void FlushPendingPopup(ForgeContext* c);
+
+struct ContainerLayoutState {
+    float startX = 0.0f;
+    float startY = 0.0f;
+    float curX = 0.0f;
+    float curY = 0.0f;
+    float contentW = 0.0f;
+    float gap = 6.0f;
+    bool isRow = false;
+};
+
+static constexpr size_t FORGE_MAX_CONTAINER_DEPTH = 32;
+static ContainerLayoutState g_ContainerStack[FORGE_MAX_CONTAINER_DEPTH];
+static size_t g_ContainerStackDepth = 0;
+
+static ContainerLayoutState* CurrentContainer() {
+    if (g_ContainerStackDepth > 0) {
+        return &g_ContainerStack[g_ContainerStackDepth - 1];
+    }
+    return nullptr;
+}
+
+static ForgeVec2 AllocateWidgetSlot(float elementWidth, float elementHeight) {
+    ContainerLayoutState* cont = CurrentContainer();
+    if (cont) {
+        ForgeVec2 pos(cont->curX, cont->curY);
+        if (cont->isRow) {
+            cont->curX += elementWidth + cont->gap;
+        } else {
+            cont->curY += elementHeight + cont->gap;
+        }
+        return pos;
+    }
+    return ForgeVec2(0.0f, 0.0f);
+}
+
 bool BeginPanel(std::string_view title, const ForgeDimension& width, const ForgeDimension& height, const ForgePanelStyle& style, ForgeContext* ctx) {
     ForgeContext* c = ctx ? ctx : GetCurrentContext();
     if (!c) return false;
@@ -28,13 +65,29 @@ bool BeginPanel(std::string_view title, const ForgeDimension& width, const Forge
     config.style.shadowBlur = style.shadowBlur;
 
     c->Begin(title, config);
+
+    if (g_ContainerStackDepth < FORGE_MAX_CONTAINER_DEPTH) {
+        auto& state = g_ContainerStack[g_ContainerStackDepth++];
+        state.startX = 12.0f;
+        state.startY = 12.0f;
+        state.curX = state.startX;
+        state.curY = state.startY;
+        state.contentW = (width.mode == ForgeSizingMode::Fixed) ? (width.value - 24.0f) : 300.0f;
+        state.gap = 8.0f;
+        state.isRow = false;
+    }
+
     return true;
 }
 
 void EndPanel(ForgeContext* ctx) {
     ForgeContext* c = ctx ? ctx : GetCurrentContext();
     if (c) {
+        FlushPendingPopup(c);
         c->End();
+    }
+    if (g_ContainerStackDepth > 0) {
+        g_ContainerStackDepth--;
     }
 }
 
@@ -67,16 +120,28 @@ bool BeginWindow(std::string_view title, float* posX, float* posY, float* width,
     drawList.AddRoundedRect(headerRect.Position(), headerRect.Position() + headerRect.Size(), style.cornerRadius, style.headerColor.ToRGBA8());
     drawList.AddBorder(winRect.Position(), winRect.Position() + winRect.Size(), style.cornerRadius, style.borderWidth, style.borderColor.ToRGBA8());
 
-    font.AppendTextToDrawList(&drawList, title.data(), ForgeVec2(*posX + 8.0f, *posY + 6.0f), 14.0f, 0xFFFFFFFF);
+    font.AppendTextToDrawList(&drawList, title.data(), ForgeVec2(*posX + 10.0f, *posY + 7.0f), 14.0f, 0xFFFFFFFF);
 
     ForgeElementConfig config{};
     config.layout.width = ForgeDimension::Px(*width);
     config.layout.height = ForgeDimension::Px(*height - 28.0f);
-    config.layout.padding = ForgeVec4(8.0f, 8.0f, 8.0f, 8.0f);
-    config.layout.gap = 6.0f;
+    config.layout.padding = ForgeVec4(12.0f, 12.0f, 12.0f, 12.0f);
+    config.layout.gap = 8.0f;
     config.layout.direction = ForgeFlexDirection::Column;
 
     c->Begin(title, config);
+
+    if (g_ContainerStackDepth < FORGE_MAX_CONTAINER_DEPTH) {
+        auto& state = g_ContainerStack[g_ContainerStackDepth++];
+        state.startX = *posX + 12.0f;
+        state.startY = *posY + 36.0f;
+        state.curX = state.startX;
+        state.curY = state.startY;
+        state.contentW = *width - 24.0f;
+        state.gap = 8.0f;
+        state.isRow = false;
+    }
+
     return true;
 }
 
@@ -94,8 +159,10 @@ bool Button(std::string_view label, const ForgeDimension& width, const ForgeDime
     ForgeFont_MSDF& font = c->GetFont();
 
     ForgeVec2 textSize = font.MeasureText(label.data(), style.fontSize);
-    float elementWidth = (width.mode == ForgeSizingMode::Fixed) ? width.value : (textSize.x + style.paddingX * 2.0f);
-    float elementHeight = (height.mode == ForgeSizingMode::Fixed) ? height.value : (textSize.y + style.paddingY * 2.0f);
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : (textSize.x + style.paddingX * 2.0f);
+    float elementWidth = (width.mode == ForgeSizingMode::Fixed) ? width.value : ((width.mode == ForgeSizingMode::Grow) ? fallbackW : (textSize.x + style.paddingX * 2.0f));
+    float elementHeight = (height.mode == ForgeSizingMode::Fixed) ? height.value : 30.0f;
 
     ForgeElementConfig config{};
     config.layout.width = ForgeDimension::Px(elementWidth);
@@ -104,7 +171,7 @@ bool Button(std::string_view label, const ForgeDimension& width, const ForgeDime
     uint32_t idx = c->Element(label, config);
     (void)idx;
 
-    ForgeVec2 pos(0.0f, 0.0f);
+    ForgeVec2 pos = AllocateWidgetSlot(elementWidth, elementHeight);
     ForgeRect bounds(pos.x, pos.y, elementWidth, elementHeight);
 
     bool hovered = IsHovered(bounds, input.mousePos);
@@ -138,8 +205,9 @@ bool Button(std::string_view label, const ForgeDimension& width, const ForgeDime
         drawList.AddBorder(bounds.Position(), bounds.Position() + bounds.Size(), style.cornerRadius, style.borderWidth, style.borderColor.ToRGBA8());
     }
 
-    ForgeVec2 textPos = bounds.Position() + ForgeVec2(style.paddingX, style.paddingY);
-    font.AppendTextToDrawList(&drawList, label.data(), textPos, style.fontSize, style.textColor.ToRGBA8());
+    float textX = bounds.x + (bounds.w - textSize.x) * 0.5f;
+    float textY = bounds.y + (bounds.h - textSize.y) * 0.5f;
+    font.AppendTextToDrawList(&drawList, label.data(), ForgeVec2(textX, textY), style.fontSize, style.textColor.ToRGBA8());
 
     return clicked;
 }
@@ -159,8 +227,8 @@ void Label(std::string_view text, float fontSize, const ForgeColor& color, Forge
 
     c->Element(text, config);
 
-    ForgeVec2 textPos(0.0f, 0.0f);
-    font.AppendTextToDrawList(&drawList, text.data(), textPos, fontSize, color.ToRGBA8());
+    ForgeVec2 pos = AllocateWidgetSlot(textSize.x, textSize.y);
+    font.AppendTextToDrawList(&drawList, text.data(), pos, fontSize, color.ToRGBA8());
 }
 
 bool SliderFloat(std::string_view label, float* value, float min, float max, const ForgeDimension& width, const ForgeSliderStyle& style, ForgeContext* ctx) {
@@ -172,7 +240,9 @@ bool SliderFloat(std::string_view label, float* value, float min, float max, con
     ForgeDrawList& drawList = c->GetDrawList();
     ForgeFont_MSDF& font = c->GetFont();
 
-    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : 200.0f;
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : 200.0f;
+    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : fallbackW;
     float h = style.height;
 
     ForgeElementConfig config{};
@@ -181,11 +251,14 @@ bool SliderFloat(std::string_view label, float* value, float min, float max, con
 
     c->Element(label, config);
 
-    ForgeRect bounds(0.0f, 0.0f, w, h);
+    ForgeVec2 pos = AllocateWidgetSlot(w, h);
+    ForgeRect bounds(pos.x, pos.y, w, h);
+
     bool hovered = IsHovered(bounds, input.mousePos);
+    bool yHit = (input.mousePos.y >= bounds.y && input.mousePos.y <= bounds.y + bounds.h);
     bool changed = false;
 
-    if (hovered && input.mousePressed[0]) {
+    if (input.mousePressed[0] && (hovered || yHit)) {
         input.activeId = id;
     }
 
@@ -220,8 +293,8 @@ bool SliderFloat(std::string_view label, float* value, float min, float max, con
     drawList.AddRoundedRect(thumbMin, thumbMax, style.cornerRadius, thumbCol.ToRGBA8());
 
     char buf[64];
-    snprintf(buf, sizeof(buf), "%.2f", *value);
-    ForgeVec2 textPos(bounds.x + bounds.w + 8.0f, bounds.y + 2.0f);
+    snprintf(buf, sizeof(buf), "%s: %.2f", label.data(), *value);
+    ForgeVec2 textPos(bounds.x + 8.0f, bounds.y + (bounds.h - style.fontSize) * 0.5f);
     font.AppendTextToDrawList(&drawList, buf, textPos, style.fontSize, style.textColor.ToRGBA8());
 
     return changed;
@@ -257,7 +330,8 @@ bool Checkbox(std::string_view label, bool* value, const ForgeCheckboxStyle& sty
 
     c->Element(label, config);
 
-    ForgeRect bounds(0.0f, 0.0f, totalW, totalH);
+    ForgeVec2 pos = AllocateWidgetSlot(totalW, totalH);
+    ForgeRect bounds(pos.x, pos.y, totalW, totalH);
     bool hovered = IsHovered(bounds, input.mousePos);
     bool changed = false;
 
@@ -293,7 +367,9 @@ bool TextInput(std::string_view label, char* buffer, size_t bufferCapacity, cons
     ForgeDrawList& drawList = c->GetDrawList();
     ForgeFont_MSDF& font = c->GetFont();
 
-    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : 200.0f;
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : 200.0f;
+    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : fallbackW;
     float h = 26.0f;
 
     ForgeElementConfig config{};
@@ -302,7 +378,8 @@ bool TextInput(std::string_view label, char* buffer, size_t bufferCapacity, cons
 
     c->Element(label, config);
 
-    ForgeRect bounds(0.0f, 0.0f, w, h);
+    ForgeVec2 pos = AllocateWidgetSlot(w, h);
+    ForgeRect bounds(pos.x, pos.y, w, h);
     bool hovered = IsHovered(bounds, input.mousePos);
 
     if (hovered && input.mousePressed[0]) {
@@ -343,15 +420,84 @@ bool TextInput(std::string_view label, char* buffer, size_t bufferCapacity, cons
     return modified;
 }
 
-bool Dropdown(std::string_view label, int32_t* selectedIndex, const char* const* items, size_t itemCount, bool* isOpen, const ForgeDimension& width, ForgeContext* ctx) {
-    ForgeContext* c = ctx ? ctx : GetCurrentContext();
-    if (!c || !selectedIndex || !items || itemCount == 0 || !isOpen) return false;
+struct PopupOverlayItem {
+    char text[64];
+};
+
+struct PopupOverlayState {
+    ForgeID id = FORGE_INVALID_ID;
+    ForgeRect bounds;
+    int32_t* selectedIndex = nullptr;
+    bool* isOpen = nullptr;
+    PopupOverlayItem items[16];
+    size_t itemCount = 0;
+    bool active = false;
+};
+
+static ForgeID g_ActivePopupId = FORGE_INVALID_ID;
+static PopupOverlayState g_PendingPopup;
+
+static void FlushPendingPopup(ForgeContext* c) {
+    if (!g_PendingPopup.active || !c) return;
 
     ForgeInputState& input = c->GetInput();
     ForgeDrawList& drawList = c->GetDrawList();
     ForgeFont_MSDF& font = c->GetFont();
 
-    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : 200.0f;
+    float w = g_PendingPopup.bounds.w;
+    float h = g_PendingPopup.bounds.h;
+    float startY = g_PendingPopup.bounds.y + h;
+    float totalPopupH = static_cast<float>(g_PendingPopup.itemCount) * 24.0f;
+    ForgeRect fullMenuRect(g_PendingPopup.bounds.x, startY, w, totalPopupH);
+
+    drawList.AddRoundedRect(ForgeVec2(fullMenuRect.x, fullMenuRect.y), ForgeVec2(fullMenuRect.x + fullMenuRect.w, fullMenuRect.y + fullMenuRect.h), 4.0f, 0xFF14171E);
+    drawList.AddBorder(ForgeVec2(fullMenuRect.x, fullMenuRect.y), ForgeVec2(fullMenuRect.x + fullMenuRect.w, fullMenuRect.y + fullMenuRect.h), 4.0f, 1.0f, 0xFF3D4450);
+
+    for (size_t i = 0; i < g_PendingPopup.itemCount; ++i) {
+        ForgeRect itemRect(g_PendingPopup.bounds.x, startY + static_cast<float>(i) * 24.0f, w, 24.0f);
+        bool itemHover = IsHovered(itemRect, input.mousePos);
+
+        uint32_t itemBg = itemHover ? 0xFF2D5A9E : 0x00000000;
+        if (itemHover) {
+            drawList.AddRect(itemRect.Position(), itemRect.Position() + itemRect.Size(), itemBg);
+        }
+        font.AppendTextToDrawList(&drawList, g_PendingPopup.items[i].text, itemRect.Position() + ForgeVec2(8.0f, 4.0f), 13.0f, 0xFFFFFFFF);
+
+        if (itemHover && input.mousePressed[0]) {
+            if (g_PendingPopup.selectedIndex) {
+                *g_PendingPopup.selectedIndex = static_cast<int32_t>(i);
+            }
+            if (g_PendingPopup.isOpen) {
+                *g_PendingPopup.isOpen = false;
+            }
+            g_ActivePopupId = FORGE_INVALID_ID;
+            input.mousePressed[0] = false;
+            break;
+        }
+    }
+
+    if (input.mousePressed[0] && !IsHovered(fullMenuRect, input.mousePos) && !IsHovered(g_PendingPopup.bounds, input.mousePos)) {
+        if (g_PendingPopup.isOpen) {
+            *g_PendingPopup.isOpen = false;
+        }
+        g_ActivePopupId = FORGE_INVALID_ID;
+    }
+
+    g_PendingPopup.active = false;
+}
+
+bool Dropdown(std::string_view label, int32_t* selectedIndex, const char* const* items, size_t itemCount, bool* isOpen, const ForgeDimension& width, ForgeContext* ctx) {
+    ForgeContext* c = ctx ? ctx : GetCurrentContext();
+    if (!c || !selectedIndex || !items || itemCount == 0 || !isOpen) return false;
+
+    ForgeID id = c->GetID(label);
+    ForgeInputState& input = c->GetInput();
+    ForgeDrawList& drawList = c->GetDrawList();
+    ForgeFont_MSDF& font = c->GetFont();
+
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : 200.0f;
+    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : fallbackW;
     float h = 26.0f;
 
     ForgeElementConfig config{};
@@ -359,11 +505,23 @@ bool Dropdown(std::string_view label, int32_t* selectedIndex, const char* const*
     config.layout.height = ForgeDimension::Px(h);
     c->Element(label, config);
 
-    ForgeRect bounds(0.0f, 0.0f, w, h);
+    ForgeVec2 pos = AllocateWidgetSlot(w, h);
+    ForgeRect bounds(pos.x, pos.y, w, h);
     bool hovered = IsHovered(bounds, input.mousePos);
 
     if (hovered && input.mousePressed[0]) {
-        *isOpen = !(*isOpen);
+        if (g_ActivePopupId == id) {
+            g_ActivePopupId = FORGE_INVALID_ID;
+            *isOpen = false;
+        } else {
+            g_ActivePopupId = id;
+            *isOpen = true;
+        }
+        input.mousePressed[0] = false;
+    }
+
+    if (g_ActivePopupId != id) {
+        *isOpen = false;
     }
 
     drawList.AddRoundedRect(bounds.Position(), bounds.Position() + bounds.Size(), 4.0f, 0xFF2A2D34);
@@ -374,25 +532,19 @@ bool Dropdown(std::string_view label, int32_t* selectedIndex, const char* const*
 
     font.AppendTextToDrawList(&drawList, *isOpen ? "^" : "v", bounds.Position() + ForgeVec2(w - 18.0f, 5.0f), 12.0f, 0xFFAAAAAA);
 
-    bool changed = false;
     if (*isOpen) {
-        for (size_t i = 0; i < itemCount; ++i) {
-            ForgeRect itemRect(bounds.x, bounds.y + h + static_cast<float>(i) * 24.0f, w, 24.0f);
-            bool itemHover = IsHovered(itemRect, input.mousePos);
-
-            uint32_t itemBg = itemHover ? 0xFF3B4860 : 0xFF1E2128;
-            drawList.AddRect(itemRect.Position(), itemRect.Position() + itemRect.Size(), itemBg);
-            font.AppendTextToDrawList(&drawList, items[i], itemRect.Position() + ForgeVec2(8.0f, 4.0f), 13.0f, 0xFFFFFFFF);
-
-            if (itemHover && input.mousePressed[0]) {
-                *selectedIndex = static_cast<int32_t>(i);
-                *isOpen = false;
-                changed = true;
-            }
+        g_PendingPopup.id = id;
+        g_PendingPopup.bounds = bounds;
+        g_PendingPopup.selectedIndex = selectedIndex;
+        g_PendingPopup.isOpen = isOpen;
+        g_PendingPopup.itemCount = std::min(itemCount, size_t(16));
+        for (size_t i = 0; i < g_PendingPopup.itemCount; ++i) {
+            snprintf(g_PendingPopup.items[i].text, sizeof(g_PendingPopup.items[i].text), "%s", items[i]);
         }
+        g_PendingPopup.active = true;
     }
 
-    return changed;
+    return false;
 }
 
 bool TabBar(std::string_view id, const char* const* tabNames, size_t tabCount, int32_t* selectedTab, ForgeContext* ctx) {
@@ -410,21 +562,31 @@ bool TabBar(std::string_view id, const char* const* tabNames, size_t tabCount, i
     config.layout.gap = 4.0f;
     c->Begin(id, config);
 
+    ContainerLayoutState* cont = CurrentContainer();
+    float totalW = cont ? cont->contentW : 300.0f;
+    ForgeVec2 startPos = AllocateWidgetSlot(totalW, 32.0f);
+
     bool changed = false;
-    float curX = 0.0f;
+    float tabW = (totalW - (static_cast<float>(tabCount - 1) * 4.0f)) / static_cast<float>(tabCount);
+    float curX = startPos.x;
 
     for (size_t i = 0; i < tabCount; ++i) {
-        ForgeVec2 txtSize = font.MeasureText(tabNames[i], 14.0f);
-        float tabW = txtSize.x + 24.0f;
-        ForgeRect tabRect(curX, 0.0f, tabW, 30.0f);
+        ForgeRect tabRect(curX, startPos.y, tabW, 28.0f);
 
         bool active = (*selectedTab == static_cast<int32_t>(i));
         bool hover = IsHovered(tabRect, input.mousePos);
 
-        uint32_t col = active ? 0xFF2F66B8 : (hover ? 0xFF353B45 : 0xFF20242C);
-        drawList.AddRoundedRect(tabRect.Position(), tabRect.Position() + tabRect.Size(), 4.0f, col);
+        ForgeColor activeCol(0.18f, 0.40f, 0.72f, 1.0f);
+        ForgeColor hoverCol(0.21f, 0.23f, 0.27f, 1.0f);
+        ForgeColor normalCol(0.13f, 0.14f, 0.17f, 1.0f);
+        ForgeColor col = active ? activeCol : (hover ? hoverCol : normalCol);
 
-        font.AppendTextToDrawList(&drawList, tabNames[i], tabRect.Position() + ForgeVec2(12.0f, 6.0f), 14.0f, 0xFFFFFFFF);
+        drawList.AddRoundedRect(tabRect.Position(), tabRect.Position() + tabRect.Size(), 4.0f, col.ToRGBA8());
+
+        ForgeVec2 txtSize = font.MeasureText(tabNames[i], 12.0f);
+        float tx = tabRect.x + (tabW - txtSize.x) * 0.5f;
+        float ty = tabRect.y + (28.0f - txtSize.y) * 0.5f;
+        font.AppendTextToDrawList(&drawList, tabNames[i], ForgeVec2(tx, ty), 12.0f, ForgeColor(1.0f, 1.0f, 1.0f, 1.0f).ToRGBA8());
 
         if (hover && input.mousePressed[0]) {
             *selectedTab = static_cast<int32_t>(i);
@@ -445,7 +607,9 @@ bool ColorPicker(std::string_view label, ForgeColor* color, const ForgeDimension
     ForgeDrawList& drawList = c->GetDrawList();
     ForgeFont_MSDF& font = c->GetFont();
 
-    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : 200.0f;
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : 200.0f;
+    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : fallbackW;
 
     ForgeElementConfig config{};
     config.layout.width = ForgeDimension::Px(w);
@@ -454,9 +618,10 @@ bool ColorPicker(std::string_view label, ForgeColor* color, const ForgeDimension
     config.layout.gap = 4.0f;
     c->Begin(label, config);
 
-    ForgeRect preview(0.0f, 0.0f, 32.0f, 18.0f);
+    ForgeVec2 pos = AllocateWidgetSlot(w, 22.0f);
+    ForgeRect preview(pos.x, pos.y, 32.0f, 18.0f);
     drawList.AddRoundedRect(preview.Position(), preview.Position() + preview.Size(), 3.0f, color->ToRGBA8());
-    font.AppendTextToDrawList(&drawList, label.data(), ForgeVec2(38.0f, 2.0f), 13.0f, 0xFFFFFFFF);
+    font.AppendTextToDrawList(&drawList, label.data(), ForgeVec2(pos.x + 38.0f, pos.y + 2.0f), 13.0f, 0xFFFFFFFF);
 
     bool chgR = SliderFloat("R", &color->r, 0.0f, 1.0f, ForgeDimension::Px(w - 20.0f), {}, c);
     bool chgG = SliderFloat("G", &color->g, 0.0f, 1.0f, ForgeDimension::Px(w - 20.0f), {}, c);
@@ -472,7 +637,9 @@ void ProgressBar(float fraction, const ForgeDimension& width, const ForgeDimensi
 
     ForgeDrawList& drawList = c->GetDrawList();
 
-    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : 200.0f;
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : 200.0f;
+    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : fallbackW;
     float h = (height.mode == ForgeSizingMode::Fixed) ? height.value : 16.0f;
 
     ForgeElementConfig config{};
@@ -480,7 +647,8 @@ void ProgressBar(float fraction, const ForgeDimension& width, const ForgeDimensi
     config.layout.height = ForgeDimension::Px(h);
     c->Element("ProgressBar", config);
 
-    ForgeRect bounds(0.0f, 0.0f, w, h);
+    ForgeVec2 pos = AllocateWidgetSlot(w, h);
+    ForgeRect bounds(pos.x, pos.y, w, h);
     drawList.AddRoundedRect(bounds.Position(), bounds.Position() + bounds.Size(), 3.0f, 0xFF1C1E24);
 
     float frac = std::clamp(fraction, 0.0f, 1.0f);
@@ -498,12 +666,16 @@ bool CollapsingHeader(std::string_view label, bool* isExpanded, ForgeContext* ct
     ForgeDrawList& drawList = c->GetDrawList();
     ForgeFont_MSDF& font = c->GetFont();
 
+    ContainerLayoutState* cont = CurrentContainer();
+    float w = cont ? cont->contentW : 300.0f;
+
     ForgeElementConfig config{};
     config.layout.width = ForgeDimension::Grow();
     config.layout.height = ForgeDimension::Px(24.0f);
     c->Element(label, config);
 
-    ForgeRect bounds(0.0f, 0.0f, 300.0f, 24.0f);
+    ForgeVec2 pos = AllocateWidgetSlot(w, 24.0f);
+    ForgeRect bounds(pos.x, pos.y, w, 24.0f);
     bool hover = IsHovered(bounds, input.mousePos);
 
     if (hover && input.mousePressed[0]) {
@@ -542,10 +714,13 @@ bool BeginScrollView(std::string_view label, const ForgeDimension& width, const 
     ForgeInputState& input = c->GetInput();
     ForgeDrawList& drawList = c->GetDrawList();
 
-    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : 300.0f;
+    ContainerLayoutState* cont = CurrentContainer();
+    float fallbackW = cont ? cont->contentW : 300.0f;
+    float w = (width.mode == ForgeSizingMode::Fixed) ? width.value : fallbackW;
     float h = (height.mode == ForgeSizingMode::Fixed) ? height.value : 400.0f;
 
-    ForgeRect bounds(0.0f, 0.0f, w, h);
+    ForgeVec2 pos = AllocateWidgetSlot(w, h);
+    ForgeRect bounds(pos.x, pos.y, w, h);
     if (IsHovered(bounds, input.mousePos)) {
         *scrollY += input.scrollDelta.y * 20.0f;
         if (*scrollY < 0.0f) *scrollY = 0.0f;
@@ -560,6 +735,18 @@ bool BeginScrollView(std::string_view label, const ForgeDimension& width, const 
     c->Begin(label, config);
 
     drawList.PushClipRect(ForgeVec4(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h));
+
+    if (g_ContainerStackDepth < FORGE_MAX_CONTAINER_DEPTH) {
+        auto& state = g_ContainerStack[g_ContainerStackDepth++];
+        state.startX = bounds.x + 4.0f;
+        state.startY = bounds.y + 4.0f - *scrollY;
+        state.curX = state.startX;
+        state.curY = state.startY;
+        state.contentW = bounds.w - 8.0f;
+        state.gap = 4.0f;
+        state.isRow = false;
+    }
+
     return true;
 }
 
@@ -569,6 +756,10 @@ void EndScrollView(ForgeContext* ctx) {
 
     c->GetDrawList().PopClipRect();
     c->End();
+
+    if (g_ContainerStackDepth > 0) {
+        g_ContainerStackDepth--;
+    }
 }
 
 }

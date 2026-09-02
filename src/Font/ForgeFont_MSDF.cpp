@@ -121,21 +121,24 @@ void ForgeFont_MSDF::Initialize(ForgeArena* arena, uint64_t atlasTextureHandle) 
     for (int c = 32; c < 127; ++c) {
         ForgeGlyphMetrics m;
         m.codepoint = static_cast<uint32_t>(c);
-        m.advanceX = (c == ' ' || c == '.' || c == ':' || c == 'i' || c == 'l') ? 4.0f : ((c >= 'A' && c <= 'Z') ? 10.0f : 8.0f);
+        m.advanceX = (c == ' ') ? 6.0f : ((c == '.' || c == ':' || c == 'i' || c == 'l' || c == '!' || c == '\'') ? 5.0f : ((c >= 'A' && c <= 'Z') ? 10.0f : 8.0f));
         m.bearingX = 0.0f;
         m.bearingY = 12.0f;
-        m.width = m.advanceX;
+        m.width = (c == ' ') ? 6.0f : 10.0f;
         m.height = 14.0f;
 
         int row = (c - 32) / 16;
         int col = (c - 32) % 16;
-        float uStep = 1.0f / 16.0f;
-        float vStep = 1.0f / 16.0f;
 
-        m.uvMinX = static_cast<float>(col) * uStep;
-        m.uvMinY = static_cast<float>(row) * vStep;
-        m.uvMaxX = m.uvMinX + uStep * 0.8f;
-        m.uvMaxY = m.uvMinY + vStep * 0.8f;
+        float u0 = static_cast<float>(col * 32 + 5) / 512.0f;
+        float v0 = static_cast<float>(row * 32 + 4) / 512.0f;
+        float u1 = static_cast<float>(col * 32 + 5 + 15) / 512.0f;
+        float v1 = static_cast<float>(row * 32 + 4 + 21) / 512.0f;
+
+        m.uvMinX = u0;
+        m.uvMinY = v0;
+        m.uvMaxX = u1;
+        m.uvMaxY = v1;
 
         m_StaticGlyphs[c] = m;
         m_StaticGlyphLoaded[c] = true;

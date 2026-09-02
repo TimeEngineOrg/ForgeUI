@@ -22,8 +22,11 @@ public:
     virtual void DestroyTexture(uint64_t handle) override;
 
 private:
+    bool LoadGLFunctions();
     bool CreatePipelineShaders();
     void DestroyPipelineShaders();
+    uint32_t CompileShader(uint32_t type, const char* source);
+    uint32_t LinkProgram(uint32_t vs, uint32_t fs);
 
     uint32_t m_DisplayWidth;
     uint32_t m_DisplayHeight;
@@ -38,6 +41,8 @@ private:
 
     uint32_t m_VBOSize;
     uint32_t m_IBOSize;
+
+    bool m_GLLoaded;
 };
 
 }

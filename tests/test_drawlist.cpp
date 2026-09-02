@@ -65,7 +65,24 @@ FORGE_TEST(DrawList_ClippingStack) {
     return true;
 }
 
+FORGE_TEST(DrawList_ClipStackOverflowProtection) {
+    forge::ForgeArena arena(1024 * 1024);
+    forge::ForgeDrawList drawList;
+    drawList.Initialize(&arena, 1024, 2048, 64);
+
+    for (size_t i = 0; i < 50; ++i) {
+        drawList.PushClipRect(forge::ForgeVec4(0.0f, 0.0f, 100.0f, 100.0f));
+    }
+
+    for (size_t i = 0; i < 60; ++i) {
+        drawList.PopClipRect();
+    }
+
+    return true;
+}
+
 void RegisterDrawListTests() {
     RegisterTest("DrawList_BatchConsolidation", Test_DrawList_BatchConsolidation);
     RegisterTest("DrawList_ClippingStack", Test_DrawList_ClippingStack);
+    RegisterTest("DrawList_ClipStackOverflowProtection", Test_DrawList_ClipStackOverflowProtection);
 }

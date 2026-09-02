@@ -215,6 +215,23 @@ FORGE_TEST(Widgets_ThemePresets) {
     return true;
 }
 
+FORGE_TEST(Widgets_ContainerStackOverflowProtection) {
+    forge::ForgeContext ctx;
+    forge::SetCurrentContext(&ctx);
+
+    ctx.BeginFrame();
+    for (size_t i = 0; i < 50; ++i) {
+        forge::BeginPanel("NestedPanel", forge::ForgeDimension::Px(200.0f), forge::ForgeDimension::Px(200.0f), {});
+    }
+
+    for (size_t i = 0; i < 60; ++i) {
+        forge::EndPanel();
+    }
+    ctx.EndFrame();
+
+    return true;
+}
+
 void RegisterWidgetsTests() {
     RegisterTest("Widgets_ButtonInteraction", Test_Widgets_ButtonInteraction);
     RegisterTest("Widgets_SliderFloatClamping", Test_Widgets_SliderFloatClamping);
@@ -223,4 +240,5 @@ void RegisterWidgetsTests() {
     RegisterTest("Widgets_ScrollViewClipping", Test_Widgets_ScrollViewClipping);
     RegisterTest("Widgets_AdvancedSuiteDropdownAndTabs", Test_Widgets_AdvancedSuiteDropdownAndTabs);
     RegisterTest("Widgets_ThemePresets", Test_Widgets_ThemePresets);
+    RegisterTest("Widgets_ContainerStackOverflowProtection", Test_Widgets_ContainerStackOverflowProtection);
 }

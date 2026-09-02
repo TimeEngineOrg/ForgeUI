@@ -40,6 +40,7 @@ target_link_libraries(ForgeStressTest PRIVATE ForgeUI)
 target_include_directories(ForgeStressTest PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
 
 option(FORGE_BUILD_BENCHMARK "Build Dear ImGui comparison benchmark" OFF)
+option(FORGE_BUILD_WINDOWED_DEMO "Build GLFW hardware windowed demo" OFF)
 
 if(FORGE_BUILD_BENCHMARK)
     include(FetchContent)
@@ -59,6 +60,28 @@ if(FORGE_BUILD_BENCHMARK)
     )
     target_link_libraries(ForgeBenchmark PRIVATE ForgeUI)
     target_include_directories(ForgeBenchmark PRIVATE include ${imgui_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+if(FORGE_BUILD_WINDOWED_DEMO)
+    include(FetchContent)
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+
+    FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG        3.4
+    )
+    FetchContent_MakeAvailable(glfw)
+
+    add_executable(ForgeWindowedDemo examples/WindowedDemo/main.cpp)
+    target_link_libraries(ForgeWindowedDemo PRIVATE ForgeUI glfw)
+    if(WIN32)
+        target_link_libraries(ForgeWindowedDemo PRIVATE opengl32)
+    endif()
+    target_include_directories(ForgeWindowedDemo PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 enable_testing()

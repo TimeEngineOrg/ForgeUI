@@ -119,7 +119,7 @@ struct ForgeColor {
             if (v >= 1.0f) return 255;
             return static_cast<uint32_t>(v * 255.0f + 0.5f);
         };
-        return (clamp255(r) << 24) | (clamp255(g) << 16) | (clamp255(b) << 8) | clamp255(a);
+        return clamp255(r) | (clamp255(g) << 8) | (clamp255(b) << 16) | (clamp255(a) << 24);
     }
 
     constexpr bool operator==(const ForgeColor& rhs) const noexcept {
