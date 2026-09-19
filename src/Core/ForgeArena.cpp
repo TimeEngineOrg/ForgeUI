@@ -1,12 +1,15 @@
 #include "ForgeUI/Core/ForgeArena.h"
 #include <cstdlib>
+#if defined(_WIN32) || defined(_MSC_VER)
+#include <malloc.h>
+#endif
 
 namespace forge {
 
 ForgeArena::ForgeArena(size_t capacity) noexcept
     : m_capacity(capacity), m_offset(0) {
     if (capacity > 0) {
-#if defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER)
         m_buffer = static_cast<uint8_t*>(_aligned_malloc(capacity, FORGE_CACHE_LINE));
 #else
         void* ptr = nullptr;
@@ -21,7 +24,7 @@ ForgeArena::ForgeArena(size_t capacity) noexcept
 
 ForgeArena::~ForgeArena() noexcept {
     if (m_buffer) {
-#if defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER)
         _aligned_free(m_buffer);
 #else
         free(m_buffer);
@@ -40,7 +43,7 @@ ForgeArena::ForgeArena(ForgeArena&& other) noexcept
 ForgeArena& ForgeArena::operator=(ForgeArena&& other) noexcept {
     if (this != &other) {
         if (m_buffer) {
-#if defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER)
             _aligned_free(m_buffer);
 #else
             free(m_buffer);
