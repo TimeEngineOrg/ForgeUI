@@ -1,11 +1,14 @@
 #include "ForgeUI/Core/ForgeStorage.h"
 #include <cstdlib>
 #include <cstring>
+#if defined(_WIN32) || defined(_MSC_VER)
+#include <malloc.h>
+#endif
 
 namespace forge {
 
 ForgeStorage::ForgeStorage() noexcept {
-#if defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER)
     m_layout = static_cast<ForgeLayoutArray*>(_aligned_malloc(sizeof(ForgeLayoutArray), FORGE_CACHE_LINE));
 #else
     void* ptr = nullptr;
@@ -20,7 +23,7 @@ ForgeStorage::ForgeStorage() noexcept {
 
 ForgeStorage::~ForgeStorage() noexcept {
     if (m_layout) {
-#if defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER)
         _aligned_free(m_layout);
 #else
         free(m_layout);
@@ -40,7 +43,7 @@ ForgeStorage::ForgeStorage(ForgeStorage&& other) noexcept
 ForgeStorage& ForgeStorage::operator=(ForgeStorage&& other) noexcept {
     if (this != &other) {
         if (m_layout) {
-#if defined(_MSC_VER)
+#if defined(_WIN32) || defined(_MSC_VER)
             _aligned_free(m_layout);
 #else
             free(m_layout);
