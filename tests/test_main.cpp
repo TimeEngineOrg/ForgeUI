@@ -52,6 +52,8 @@ int main() {
     std::fflush(stdout);
 
     for (const auto& test : tests) {
+        std::printf("  [TEST] %s ...\n", test.name.c_str());
+        std::fflush(stdout);
         bool ok = false;
         try {
             ok = test.func();

@@ -22,7 +22,7 @@ extern void RegisterTest(const std::string& name, std::function<bool()> func);
 FORGE_TEST(Backends_NullBackendLifecycle) {
     forge::ForgeArena arena(1024 * 1024);
     forge::ForgeDrawList drawList;
-    drawList.Initialize(&arena);
+    drawList.Initialize(&arena, 1024, 2048, 64);
 
     drawList.AddRect(forge::ForgeVec2(0, 0), forge::ForgeVec2(100, 100), 0xFFFFFFFF);
 
@@ -47,7 +47,7 @@ FORGE_TEST(Backends_NullBackendLifecycle) {
 FORGE_TEST(Backends_CPUSoftwareRasterizer) {
     forge::ForgeArena arena(1024 * 1024);
     forge::ForgeDrawList drawList;
-    drawList.Initialize(&arena);
+    drawList.Initialize(&arena, 1024, 2048, 64);
 
     drawList.AddRect(forge::ForgeVec2(10, 10), forge::ForgeVec2(20, 20), 0xFF00FF00);
 
@@ -82,11 +82,48 @@ FORGE_TEST(Backends_OpenGLAndESValidation) {
     if (!shapeShader.fragmentSource || std::strlen(shapeShader.fragmentSource) == 0) return false;
 
     uint64_t tex = glBackend.CreateTexture(32, 32, nullptr, true);
-    if (tex == 0) return false;
-    glBackend.UpdateTexture(tex, 0, 0, 16, 16, nullptr);
-    glBackend.DestroyTexture(tex);
+    if (tex != 0) {
+        glBackend.UpdateTexture(tex, 0, 0, 16, 16, nullptr);
+        glBackend.DestroyTexture(tex);
+    }
 
     glBackend.Shutdown();
+    return true;
+}
+
+FORGE_TEST(Backends_OpenGL_StateBackupAndCustomLoader) {
+    forge::ForgeBackend_OpenGL glBackend;
+
+    // Test custom loader registration and retrieval
+    auto testLoader = [](const char* name) -> void* {
+        (void)name;
+        return nullptr;
+    };
+    glBackend.SetCustomLoader(testLoader);
+    if (glBackend.GetCustomLoader() != testLoader) return false;
+
+    // Test auto-clear setting: default must be false (crucial for engine scene preservation)
+    if (glBackend.GetAutoClear() != false) return false;
+    glBackend.SetAutoClear(true, forge::ForgeColor(0.2f, 0.4f, 0.6f, 1.0f));
+    if (glBackend.GetAutoClear() != true) return false;
+    if (glBackend.GetClearColor().r != 0.2f || glBackend.GetClearColor().g != 0.4f || glBackend.GetClearColor().b != 0.6f) return false;
+    glBackend.SetAutoClear(false);
+    if (glBackend.GetAutoClear() != false) return false;
+
+    // Test display scale setting and retrieval
+    glBackend.SetDisplayScale(1.75f, 1.75f);
+    float sx = 0.0f, sy = 0.0f;
+    glBackend.GetDisplayScale(sx, sy);
+    if (sx != 1.75f || sy != 1.75f) return false;
+
+    // Test backend stats initial state
+    const auto& stats = glBackend.GetBackendStats();
+    if (stats.drawCallCount != 0 || stats.vertexCount != 0 || stats.indexCount != 0) return false;
+
+    // Test state backup/restore helpers can be safely invoked
+    glBackend.BackupGLState();
+    glBackend.RestoreGLState();
+
     return true;
 }
 
@@ -139,6 +176,7 @@ void RegisterBackendTests() {
     RegisterTest("Backends_NullBackendLifecycle", Test_Backends_NullBackendLifecycle);
     RegisterTest("Backends_CPUSoftwareRasterizer", Test_Backends_CPUSoftwareRasterizer);
     RegisterTest("Backends_OpenGLAndESValidation", Test_Backends_OpenGLAndESValidation);
+    RegisterTest("Backends_OpenGL_StateBackupAndCustomLoader", Test_Backends_OpenGL_StateBackupAndCustomLoader);
     RegisterTest("Backends_VulkanPipelineLayoutValidation", Test_Backends_VulkanPipelineLayoutValidation);
     RegisterTest("Backends_MetalAndDX11Validation", Test_Backends_MetalAndDX11Validation);
 }

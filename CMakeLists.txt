@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(ForgeUI CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
@@ -10,8 +10,9 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-include_directories(include)
-
+# ------------------------------------------------------------------------------
+# Core Library Target
+# ------------------------------------------------------------------------------
 set(FORGE_SOURCES
     src/Core/ForgeID.cpp
     src/Core/ForgeArena.cpp
@@ -29,60 +30,24 @@ set(FORGE_SOURCES
 )
 
 add_library(ForgeUI STATIC ${FORGE_SOURCES})
-target_include_directories(ForgeUI PUBLIC include)
+target_include_directories(ForgeUI PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
-add_executable(ForgeDemo examples/Demo/main.cpp)
-target_link_libraries(ForgeDemo PRIVATE ForgeUI)
-target_include_directories(ForgeDemo PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_executable(ForgeStressTest examples/StressTest/main.cpp)
-target_link_libraries(ForgeStressTest PRIVATE ForgeUI)
-target_include_directories(ForgeStressTest PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
-
+# ------------------------------------------------------------------------------
+# Monorepo Subprojects & Options
+# ------------------------------------------------------------------------------
+option(FORGE_BUILD_EXAMPLES "Build example applications" ON)
+option(FORGE_BUILD_TESTS "Build ForgeUI unit tests" ON)
+option(FORGE_BUILD_WINDOWED_DEMO "Build GLFW hardware windowed demo" ON)
 option(FORGE_BUILD_BENCHMARK "Build Dear ImGui comparison benchmark" OFF)
-option(FORGE_BUILD_WINDOWED_DEMO "Build GLFW hardware windowed demo" OFF)
 
-if(FORGE_BUILD_BENCHMARK)
-    include(FetchContent)
-    FetchContent_Declare(
-        imgui
-        GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG        v1.91.8
-    )
-    FetchContent_MakeAvailable(imgui)
-
-    add_executable(ForgeBenchmark
-        examples/Benchmark/main.cpp
-        ${imgui_SOURCE_DIR}/imgui.cpp
-        ${imgui_SOURCE_DIR}/imgui_draw.cpp
-        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-        ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    )
-    target_link_libraries(ForgeBenchmark PRIVATE ForgeUI)
-    target_include_directories(ForgeBenchmark PRIVATE include ${imgui_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+if(FORGE_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
-if(FORGE_BUILD_WINDOWED_DEMO)
-    include(FetchContent)
-    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
-    FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG        3.4
-    )
-    FetchContent_MakeAvailable(glfw)
-
-    add_executable(ForgeWindowedDemo examples/WindowedDemo/main.cpp)
-    target_link_libraries(ForgeWindowedDemo PRIVATE ForgeUI glfw)
-    if(WIN32)
-        target_link_libraries(ForgeWindowedDemo PRIVATE opengl32)
-    endif()
-    target_include_directories(ForgeWindowedDemo PRIVATE include ${CMAKE_CURRENT_SOURCE_DIR})
+if(FORGE_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
-
-enable_testing()
-add_subdirectory(tests)

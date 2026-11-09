@@ -41,6 +41,21 @@ namespace forge {
 #define GL_RGBA                           0x1908
 #define GL_RGB                            0x1907
 
+#define GL_ACTIVE_TEXTURE                 0x84E0
+#define GL_CURRENT_PROGRAM                0x8B8D
+#define GL_VERTEX_ARRAY_BINDING           0x85B5
+#define GL_ARRAY_BUFFER_BINDING           0x8894
+#define GL_ELEMENT_ARRAY_BUFFER_BINDING   0x8895
+#define GL_TEXTURE_BINDING_2D             0x8069
+#define GL_VIEWPORT                       0x0BA2
+#define GL_SCISSOR_BOX                    0x0C10
+#define GL_BLEND_SRC_RGB                  0x80C9
+#define GL_BLEND_DST_RGB                  0x80C8
+#define GL_BLEND_SRC_ALPHA                0x80CB
+#define GL_BLEND_DST_ALPHA                0x80CA
+#define GL_BLEND_EQUATION_RGB             0x8009
+#define GL_BLEND_EQUATION_ALPHA           0x883D
+
 typedef unsigned int GLenum;
 typedef unsigned int GLuint;
 typedef unsigned int GLbitfield;
@@ -99,6 +114,12 @@ typedef void (GL_APIENTRY *PFNGLTEXPARAMETERIPROC)(GLenum target, GLenum pname, 
 typedef void (GL_APIENTRY *PFNGLTEXIMAGE2DPROC)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels);
 typedef void (GL_APIENTRY *PFNGLTEXSUBIMAGE2DPROC)(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels);
 
+typedef void (GL_APIENTRY *PFNGLGETINTEGERVPROC)(GLenum pname, GLint *data);
+typedef GLboolean (GL_APIENTRY *PFNGLISENABLEDPROC)(GLenum cap);
+typedef void (GL_APIENTRY *PFNGLBLENDFUNCSEPARATEPROC)(GLenum sfactorRGB, GLenum dfactorRGB, GLenum sfactorAlpha, GLenum dfactorAlpha);
+typedef void (GL_APIENTRY *PFNGLBLENDEQUATIONPROC)(GLenum mode);
+typedef void (GL_APIENTRY *PFNGLBLENDEQUATIONSEPARATEPROC)(GLenum modeRGB, GLenum modeAlpha);
+
 static PFNGLGENVERTEXARRAYSPROC        glGenVertexArrays_ = nullptr;
 static PFNGLBINDVERTEXARRAYPROC        glBindVertexArray_ = nullptr;
 static PFNGLDELETEVERTEXARRAYSPROC     glDeleteVertexArrays_ = nullptr;
@@ -149,7 +170,19 @@ static PFNGLTEXPARAMETERIPROC          glTexParameteri_ = nullptr;
 static PFNGLTEXIMAGE2DPROC             glTexImage2D_ = nullptr;
 static PFNGLTEXSUBIMAGE2DPROC          glTexSubImage2D_ = nullptr;
 
+static PFNGLGETINTEGERVPROC            glGetIntegerv_ = nullptr;
+static PFNGLISENABLEDPROC              glIsEnabled_ = nullptr;
+static PFNGLBLENDFUNCSEPARATEPROC      glBlendFuncSeparate_ = nullptr;
+static PFNGLBLENDEQUATIONPROC          glBlendEquation_ = nullptr;
+static PFNGLBLENDEQUATIONSEPARATEPROC  glBlendEquationSeparate_ = nullptr;
+
+static ForgeGLLoaderFunc s_ActiveCustomLoader = nullptr;
+
 static void* GetGLProc(const char* name) {
+    if (s_ActiveCustomLoader) {
+        void* p = s_ActiveCustomLoader(name);
+        if (p) return p;
+    }
 #if defined(_WIN32)
     static HMODULE hModule = LoadLibraryA("opengl32.dll");
     void* p = nullptr;
@@ -170,6 +203,11 @@ static void* GetGLProc(const char* name) {
 ForgeBackend_OpenGL::ForgeBackend_OpenGL()
     : m_DisplayWidth(1920)
     , m_DisplayHeight(1080)
+    , m_ScaleX(1.0f)
+    , m_ScaleY(1.0f)
+    , m_AutoClear(false)
+    , m_ClearColor(0.05f, 0.05f, 0.07f, 1.0f)
+    , m_CustomLoader(nullptr)
     , m_VAO(0)
     , m_VBO(0)
     , m_IBO(0)
@@ -181,14 +219,34 @@ ForgeBackend_OpenGL::ForgeBackend_OpenGL()
         m_LocProj[i] = -1;
         m_LocTexture[i] = -1;
     }
+    m_Stats = {};
+    m_StateBackup = {};
 }
 
 ForgeBackend_OpenGL::~ForgeBackend_OpenGL() {
     Shutdown();
 }
 
+void ForgeBackend_OpenGL::SetCustomLoader(ForgeGLLoaderFunc loader) {
+    m_CustomLoader = loader;
+    s_ActiveCustomLoader = loader;
+    m_GLLoaded = false;
+}
+
+void ForgeBackend_OpenGL::SetAutoClear(bool enable, const ForgeColor& clearColor) {
+    m_AutoClear = enable;
+    m_ClearColor = clearColor;
+}
+
+void ForgeBackend_OpenGL::SetDisplayScale(float scaleX, float scaleY) {
+    m_ScaleX = (scaleX > 0.0f) ? scaleX : 1.0f;
+    m_ScaleY = (scaleY > 0.0f) ? scaleY : 1.0f;
+}
+
 bool ForgeBackend_OpenGL::LoadGLFunctions() {
     if (m_GLLoaded) return true;
+
+    s_ActiveCustomLoader = m_CustomLoader;
 
     glGenVertexArrays_ = (PFNGLGENVERTEXARRAYSPROC)GetGLProc("glGenVertexArrays");
     glBindVertexArray_ = (PFNGLBINDVERTEXARRAYPROC)GetGLProc("glBindVertexArray");
@@ -234,6 +292,12 @@ bool ForgeBackend_OpenGL::LoadGLFunctions() {
     glTexImage2D_ = (PFNGLTEXIMAGE2DPROC)GetGLProc("glTexImage2D");
     glTexSubImage2D_ = (PFNGLTEXSUBIMAGE2DPROC)GetGLProc("glTexSubImage2D");
 
+    glGetIntegerv_ = (PFNGLGETINTEGERVPROC)GetGLProc("glGetIntegerv");
+    glIsEnabled_ = (PFNGLISENABLEDPROC)GetGLProc("glIsEnabled");
+    glBlendFuncSeparate_ = (PFNGLBLENDFUNCSEPARATEPROC)GetGLProc("glBlendFuncSeparate");
+    glBlendEquation_ = (PFNGLBLENDEQUATIONPROC)GetGLProc("glBlendEquation");
+    glBlendEquationSeparate_ = (PFNGLBLENDEQUATIONSEPARATEPROC)GetGLProc("glBlendEquationSeparate");
+
     if (!glGenVertexArrays_ || !glBindVertexArray_ || !glGenBuffers_ || !glBindBuffer_ ||
         !glBufferData_ || !glCreateShader_ || !glShaderSource_ || !glCompileShader_ ||
         !glCreateProgram_ || !glAttachShader_ || !glLinkProgram_ || !glUseProgram_ ||
@@ -243,6 +307,74 @@ bool ForgeBackend_OpenGL::LoadGLFunctions() {
 
     m_GLLoaded = true;
     return true;
+}
+
+void ForgeBackend_OpenGL::BackupGLState() {
+    if (!m_GLLoaded) return;
+
+    if (glGetIntegerv_) {
+        glGetIntegerv_(GL_ACTIVE_TEXTURE, &m_StateBackup.activeTexture);
+        glGetIntegerv_(GL_CURRENT_PROGRAM, &m_StateBackup.program);
+        glGetIntegerv_(GL_TEXTURE_BINDING_2D, &m_StateBackup.texture2D);
+        glGetIntegerv_(GL_VERTEX_ARRAY_BINDING, &m_StateBackup.vertexArray);
+        glGetIntegerv_(GL_ARRAY_BUFFER_BINDING, &m_StateBackup.arrayBuffer);
+        glGetIntegerv_(GL_ELEMENT_ARRAY_BUFFER_BINDING, &m_StateBackup.elementArrayBuffer);
+        glGetIntegerv_(GL_VIEWPORT, m_StateBackup.viewport);
+        glGetIntegerv_(GL_SCISSOR_BOX, m_StateBackup.scissorBox);
+        glGetIntegerv_(GL_BLEND_SRC_RGB, &m_StateBackup.blendSrcRgb);
+        glGetIntegerv_(GL_BLEND_DST_RGB, &m_StateBackup.blendDstRgb);
+        glGetIntegerv_(GL_BLEND_SRC_ALPHA, &m_StateBackup.blendSrcAlpha);
+        glGetIntegerv_(GL_BLEND_DST_ALPHA, &m_StateBackup.blendDstAlpha);
+        glGetIntegerv_(GL_BLEND_EQUATION_RGB, &m_StateBackup.blendEquationRgb);
+        glGetIntegerv_(GL_BLEND_EQUATION_ALPHA, &m_StateBackup.blendEquationAlpha);
+    }
+
+    if (glIsEnabled_) {
+        m_StateBackup.enableBlend = glIsEnabled_(GL_BLEND);
+        m_StateBackup.enableCullFace = glIsEnabled_(GL_CULL_FACE);
+        m_StateBackup.enableDepthTest = glIsEnabled_(GL_DEPTH_TEST);
+        m_StateBackup.enableScissorTest = glIsEnabled_(GL_SCISSOR_TEST);
+    }
+}
+
+void ForgeBackend_OpenGL::RestoreGLState() {
+    if (!m_GLLoaded) return;
+
+    if (glUseProgram_) glUseProgram_(m_StateBackup.program);
+    if (glBindVertexArray_) glBindVertexArray_(m_StateBackup.vertexArray);
+    if (glBindBuffer_) {
+        glBindBuffer_(GL_ARRAY_BUFFER, m_StateBackup.arrayBuffer);
+        glBindBuffer_(GL_ELEMENT_ARRAY_BUFFER, m_StateBackup.elementArrayBuffer);
+    }
+    if (glActiveTexture_) glActiveTexture_(m_StateBackup.activeTexture);
+    if (glBindTexture_) glBindTexture_(GL_TEXTURE_2D, m_StateBackup.texture2D);
+
+    if (glBlendEquationSeparate_) {
+        glBlendEquationSeparate_(m_StateBackup.blendEquationRgb, m_StateBackup.blendEquationAlpha);
+    } else if (glBlendEquation_) {
+        glBlendEquation_(m_StateBackup.blendEquationRgb);
+    }
+
+    if (glBlendFuncSeparate_) {
+        glBlendFuncSeparate_(m_StateBackup.blendSrcRgb, m_StateBackup.blendDstRgb,
+                             m_StateBackup.blendSrcAlpha, m_StateBackup.blendDstAlpha);
+    } else if (glBlendFunc_) {
+        glBlendFunc_(m_StateBackup.blendSrcRgb, m_StateBackup.blendDstRgb);
+    }
+
+    if (m_StateBackup.enableBlend) { if (glEnable_) glEnable_(GL_BLEND); } else { if (glDisable_) glDisable_(GL_BLEND); }
+    if (m_StateBackup.enableCullFace) { if (glEnable_) glEnable_(GL_CULL_FACE); } else { if (glDisable_) glDisable_(GL_CULL_FACE); }
+    if (m_StateBackup.enableDepthTest) { if (glEnable_) glEnable_(GL_DEPTH_TEST); } else { if (glDisable_) glDisable_(GL_DEPTH_TEST); }
+    if (m_StateBackup.enableScissorTest) { if (glEnable_) glEnable_(GL_SCISSOR_TEST); } else { if (glDisable_) glDisable_(GL_SCISSOR_TEST); }
+
+    if (glViewport_) {
+        glViewport_(m_StateBackup.viewport[0], m_StateBackup.viewport[1],
+                    m_StateBackup.viewport[2], m_StateBackup.viewport[3]);
+    }
+    if (glScissor_) {
+        glScissor_(m_StateBackup.scissorBox[0], m_StateBackup.scissorBox[1],
+                   m_StateBackup.scissorBox[2], m_StateBackup.scissorBox[3]);
+    }
 }
 
 uint32_t ForgeBackend_OpenGL::CompileShader(uint32_t type, const char* source) {
@@ -382,6 +514,14 @@ void ForgeBackend_OpenGL::RenderDrawList(const ForgeDrawList* drawList) {
     uint32_t indexCount = drawList->GetIndexCount();
     if (vertexCount == 0 || indexCount == 0) return;
 
+    // Reset live draw stats
+    m_Stats.drawCallCount = 0;
+    m_Stats.vertexCount = vertexCount;
+    m_Stats.indexCount = indexCount;
+
+    // Isolate OpenGL state
+    BackupGLState();
+
     glBindVertexArray_(m_VAO);
     glBindBuffer_(GL_ARRAY_BUFFER, m_VBO);
     size_t vboBytes = vertexCount * sizeof(ForgeDrawVertex);
@@ -390,6 +530,7 @@ void ForgeBackend_OpenGL::RenderDrawList(const ForgeDrawList* drawList) {
         glBufferData_(GL_ARRAY_BUFFER, m_VBOSize, nullptr, GL_DYNAMIC_DRAW);
     }
     glBufferSubData_(GL_ARRAY_BUFFER, 0, vboBytes, drawList->GetVertices());
+    m_Stats.vboBytes = m_VBOSize;
 
     glBindBuffer_(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
     size_t iboBytes = indexCount * sizeof(uint32_t);
@@ -399,10 +540,13 @@ void ForgeBackend_OpenGL::RenderDrawList(const ForgeDrawList* drawList) {
     }
     glBufferSubData_(GL_ELEMENT_ARRAY_BUFFER, 0, iboBytes, drawList->GetIndices());
 
+    float scaleX = (m_ScaleX > 0.0f) ? m_ScaleX : 1.0f;
+    float scaleY = (m_ScaleY > 0.0f) ? m_ScaleY : 1.0f;
+
     float L = 0.0f;
-    float R = static_cast<float>(m_DisplayWidth);
+    float R = static_cast<float>(m_DisplayWidth) / scaleX;
     float T = 0.0f;
-    float B = static_cast<float>(m_DisplayHeight);
+    float B = static_cast<float>(m_DisplayHeight) / scaleY;
     float orthoProj[4][4] = {
         { 2.0f / (R - L),    0.0f,              0.0f,  0.0f },
         { 0.0f,              2.0f / (T - B),    0.0f,  0.0f },
@@ -414,8 +558,8 @@ void ForgeBackend_OpenGL::RenderDrawList(const ForgeDrawList* drawList) {
         glViewport_(0, 0, static_cast<GLsizei>(m_DisplayWidth), static_cast<GLsizei>(m_DisplayHeight));
     }
 
-    if (glClearColor_ && glClear_) {
-        glClearColor_(0.05f, 0.05f, 0.07f, 1.0f);
+    if (m_AutoClear && glClearColor_ && glClear_) {
+        glClearColor_(m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, m_ClearColor.a);
         glClear_(GL_COLOR_BUFFER_BIT);
     }
 
@@ -453,20 +597,34 @@ void ForgeBackend_OpenGL::RenderDrawList(const ForgeDrawList* drawList) {
             currentTexture = cmd.textureHandle;
         }
 
-        GLint sx = static_cast<GLint>(cmd.clipRect.x);
-        GLint sy = static_cast<GLint>(static_cast<float>(m_DisplayHeight) - cmd.clipRect.w);
-        GLsizei sw = static_cast<GLsizei>(cmd.clipRect.z - cmd.clipRect.x);
-        GLsizei sh = static_cast<GLsizei>(cmd.clipRect.w - cmd.clipRect.y);
-        if (sw > 0 && sh > 0) {
+        float clipMinX = cmd.clipRect.x * scaleX;
+        float clipMinY = cmd.clipRect.y * scaleY;
+        float clipMaxX = cmd.clipRect.z * scaleX;
+        float clipMaxY = cmd.clipRect.w * scaleY;
+
+        if (clipMinX < 0.0f) clipMinX = 0.0f;
+        if (clipMinY < 0.0f) clipMinY = 0.0f;
+        if (clipMaxX > static_cast<float>(m_DisplayWidth)) clipMaxX = static_cast<float>(m_DisplayWidth);
+        if (clipMaxY > static_cast<float>(m_DisplayHeight)) clipMaxY = static_cast<float>(m_DisplayHeight);
+
+        if (clipMaxX > clipMinX && clipMaxY > clipMinY) {
+            GLint sx = static_cast<GLint>(clipMinX);
+            GLint sy = static_cast<GLint>(static_cast<float>(m_DisplayHeight) - clipMaxY);
+            GLsizei sw = static_cast<GLsizei>(clipMaxX - clipMinX);
+            GLsizei sh = static_cast<GLsizei>(clipMaxY - clipMinY);
             glScissor_(sx, sy, sw, sh);
         }
 
         glDrawElements_(GL_TRIANGLES, static_cast<GLsizei>(cmd.elemCount), GL_UNSIGNED_INT, (void*)(static_cast<uintptr_t>(cmd.elemOffset) * sizeof(uint32_t)));
+        m_Stats.drawCallCount++;
     }
 
     glDisable_(GL_SCISSOR_TEST);
     glBindVertexArray_(0);
     glUseProgram_(0);
+
+    // Completely restore host OpenGL state
+    RestoreGLState();
 }
 
 void ForgeBackend_OpenGL::EndFrame() {}

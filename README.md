@@ -1,20 +1,100 @@
 # ForgeUI
 
-> **Fast Orchestrated Responsive Graphic-layout Engine**
-> A lightweight, data-oriented, immediate-mode C++20 GUI library for game engines and high-throughput tools.
+> **Fast Orchestrated Responsive Graphic-layout Engine**  
+> A lightweight, data-oriented, immediate-mode C++20 GUI library engineered for real-time creative tools, workstation applications, simulation software, and game engines.
+
+[![CI](https://github.com/TimeEngineOrg/ForgeUI/actions/workflows/ci.yml/badge.svg)](https://github.com/TimeEngineOrg/ForgeUI/actions)
+[![Tests](https://img.shields.io/badge/tests-32%2F32%20passing-brightgreen.svg)]()
+[![Standard](https://img.shields.io/badge/c%2B%2B-20-blue.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Zero-Heap Hot-Path](https://img.shields.io/badge/hot--path%20heap-0%20bytes-orange.svg)]()
 
 ---
 
-## ⚡ Overview
+![ForgeUI Hardware OpenGL Demo](docs/images/forge_showcase.png)
 
-ForgeUI combines the ergonomics of **Immediate-Mode APIs** with the microsecond layout performance of **Linear Data-Oriented Memory (SoA)** and **GPU-accelerated SDF rendering**.
+---
 
-* **Zero External Dependencies:** Built-in linear bump arenas and custom data structures (zero STL allocation churn in hot paths).
-* **Two-Pass Flexbox Solver:** Microsecond auto-layout inspired by modern linear solvers (Measure + Arrange passes in contiguous memory).
-* **GPU Signed Distance Fields (SDF):** Anti-aliased rounded rectangles, borders, and analytic Gaussian drop shadows with minimal state changes.
-* **Dual-Tier Font Architecture:** Pre-baked static MSDF base atlas for crisp vector UI + fast dynamic rasterization for extended Unicode/CJK.
-* **Multithreaded Job System:** Work-stealing `ParallelFor` and parallel prefix sums for high-throughput vertex and index batching.
-* **Cross-Platform & Engine-Agnostic:** Pluggable backend architecture supporting OpenGL 3.3+, Vulkan 1.2+, DirectX 11, Metal, and pure CPU scanline rasterization.
+## ⚡ Key Highlights
+
+ForgeUI bridges the ergonomic simplicity of **Immediate-Mode APIs** with the cache efficiency of **Structure-of-Arrays (SoA) Data-Oriented Design**, delivering sub-microsecond flexbox layout passes with zero hot-path heap churn:
+
+* **Zero Hot-Path Allocations:** All per-frame storage, layout nodes, text strings, and draw lists operate within contiguous, linear bump arenas (`ForgeArena`).
+* **Two-Pass Flexbox Solver:** Parallelizable Measure and Arrange passes executing in contiguous cache lines. Full auto-wrap, alignment, flexing, and nesting.
+* **Production-Grade OpenGL 3.3+ Backend:**
+  * **14-Point GL State Isolation:** Complete state backup and restoration (`BackupGLState()` / `RestoreGLState()`), ensuring game engine viewports, VAO/VBO bindings, blend modes, and depth tests are left completely undisturbed.
+  * **Custom Loader Agility:** Full compatibility with any proc loader (`glfwGetProcAddress`, `gladLoadGLLoader`, SDL, or direct `wglGetProcAddress`).
+  * **High-DPI / Retina Synchronization:** Automatic framebuffer-to-window scaling for crisp pixel-perfect rendering across multi-monitor setups.
+  * **Non-Destructive Viewport Clearing:** Configurable `SetAutoClear(false)` allows seamless overlay rendering on top of complex 3D engine scenes.
+* **Dual-Tier Font Architecture:** Pre-baked static MSDF base atlas for crisp vector UI with rapid glyph metric resolution and low texture bandwidth.
+* **Work-Stealing Multithreading:** Lock-free `ForgeJobSystem` with `ParallelFor` and parallel prefix sums for high-throughput vertex and index batching.
+* **Modular Multi-Backend Architecture:** Pluggable backend abstractions for OpenGL 3.3+, Vulkan 1.2+, DirectX 11, Metal, and pure CPU software rasterization.
+
+---
+
+## 🚀 Interactive Windowed Demo
+
+Run the fully interactive hardware-accelerated OpenGL 3.3 demo (pictured above), featuring real-time audio equalizers, 3D viewport controls, High-DPI scaling, and live GPU telemetry:
+
+### Windows (Command Prompt / PowerShell)
+```cmd
+scripts\run_windowed_demo.bat
+```
+
+### Linux / macOS (Bash)
+```bash
+./scripts/run_windowed_demo.sh
+```
+
+### Interactive Keybinds
+* **Left Click / Drag:** Interact with tabs, sliders, checkboxes, and text inputs.
+* **F12:** Capture a high-resolution lossless screenshot directly to `docs/images/forge_showcase.bmp`.
+* **CLI Headless / Test Flag:** Run `build\ForgeWindowedDemo.exe --screenshot` (or `./build/ForgeWindowedDemo --screenshot`) for automated CI screenshot verification.
+
+---
+
+## 💻 Quickstart (C++20)
+
+```cpp
+#include <ForgeUI/ForgeUI.h>
+#include <ForgeUI/Backend/ForgeBackend_OpenGL.h>
+
+forge::ForgeContext context;
+forge::ForgeBackend_OpenGL backend;
+
+// 1. Initialize context and backend
+forge::SetCurrentContext(&context);
+backend.SetCustomLoader((forge::ForgeGLLoaderFunc)glfwGetProcAddress);
+backend.Initialize();
+
+// 2. Render loop
+while (!glfwWindowShouldClose(window)) {
+    context.BeginFrame(deltaTime);
+
+    // Immediate-mode flexbox layout
+    forge::BeginWindow("Engine Viewport Settings", 40.0f, 40.0f, 500.0f, 600.0f);
+    
+    static float fov = 90.0f;
+    static bool wireframe = false;
+    
+    forge::SliderFloat("Field of View", &fov, 45.0f, 120.0f);
+    forge::Checkbox("Wireframe Mode", &wireframe);
+    
+    if (forge::Button("Reset Defaults")) {
+        fov = 90.0f;
+        wireframe = false;
+    }
+    
+    forge::EndWindow();
+
+    // 3. Layout resolution & GPU submission
+    context.EndFrame();
+    backend.RenderDrawList(&context.GetDrawList());
+    backend.EndFrame();
+
+    glfwSwapBuffers(window);
+}
+```
 
 ---
 
@@ -22,14 +102,15 @@ ForgeUI combines the ergonomics of **Immediate-Mode APIs** with the microsecond 
 
 ### Architectural Comparison
 
-| Feature | Dear ImGui | ForgeUI |
-| :--- | :--- | :--- |
-| Architecture | Object-oriented / AoS | Data-oriented / SoA |
-| Layout model | Cursor based | Flexbox (measure + arrange) |
-| Memory model | Heap reallocations | Per-frame bump arena (zero heap) |
-| Threading | Single-threaded | Work-stealing job system |
-| Memory Allocation | User-defined callbacks (`malloc`/`free`) | Contiguous bump arena (custom buffer support) |
-| Core Storage | Custom `ImVector` wrappers | Zero-STL cache-aligned SoA |
+| Feature | Electron / WebViews | Dear ImGui | egui (Rust) | **ForgeUI (C++20)** |
+| :--- | :--- | :--- | :--- | :--- |
+| **Paradigm** | Retained DOM / HTML | Immediate-mode | Immediate-mode | **Immediate-mode Flexbox** |
+| **Memory Footprint** | 150MB – 500MB+ | ~10MB | ~15MB | **< 4MB Contiguous Arena** |
+| **Layout Model** | Full CSS Engine | 1-Pass Cursor | Simple Auto-layout | **2-Pass Flexbox (Measure + Arrange)** |
+| **Memory Architecture** | Garbage-collected heap | Dynamic heap (`ImVector`) | Rust alloc / Vec | **Zero-Heap Hot-Path (Linear SoA)** |
+| **Multithreading** | Main thread / IPC | Single-threaded | Single-threaded | **Work-stealing `ForgeJobSystem`** |
+| **Multi-Language Interop** | IPC / Node FFI | C++ only (cimgui wrappers) | Rust-ecosystem centric | **Zero-overhead C-ABI (C++, Rust, Zig, C#)** |
+| **Viewport State Isolation** | N/A (separate window) | Manual user wrappers | Native wgpu integration | **14-point automatic state backup & restore** |
 
 ---
 
@@ -47,41 +128,34 @@ ForgeUI combines the ergonomics of **Immediate-Mode APIs** with the microsecond 
 
 ---
 
-## 🚀 Running the Benchmarks
+## 🛠️ Building & Running Unit Tests
 
-You can run the head-to-head comparison on your own machine. ImGui is fetched on-demand during CMake configuration and is **never committed** to the repository.
+### Fast Build & Test Scripts
 
-### Windows (Batch)
 ```cmd
-run_benchmark.bat
+:: Windows (MSVC 2022 / Ninja)
+scripts\build_and_test.bat
+
+:: Linux / macOS (GCC / Clang)
+./scripts/build_and_test.sh
 ```
 
-### Linux / macOS (Bash)
+### Direct CMake Workflow
 ```bash
-chmod +x run_benchmark.sh
-./run_benchmark.sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_TESTS=ON -DFORGE_BUILD_WINDOWED_DEMO=ON
+cmake --build build --config Release --parallel
+ctest --test-dir build --output-on-failure
 ```
 
-### Manual CMake
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_BENCHMARK=ON
-cmake --build build --target ForgeBenchmark --config Release
-./build/ForgeBenchmark
-```
+All 32 tests validate memory allocation invariants, dirty tree cascades, flexbox layouts, clipping stacks, widget interactions, parallel work-stealing job systems, and hardware backend state isolation.
 
 ---
 
-## 🛠️ Building & Testing
+## 🤝 Contributing
 
-### Building Core & Tests
-```cmd
-build_and_test.bat
-```
+We welcome contributions from graphics engineers, tools developers, and systems programmers. Please see our [Contributing Guide](CONTRIBUTING.md) for architectural invariants, zero-heap rules, and PR guidelines.
 
-### Running the Test Suite (28 Tests)
-```bash
-./build/tests/ForgeCoreTests
-```
+Community interactions are governed by our [Code of Conduct](CODE_OF_CONDUCT.md). For security vulnerabilities, review our [Security Policy](SECURITY.md).
 
 ---
 

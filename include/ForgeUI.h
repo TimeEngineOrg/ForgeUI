@@ -15,6 +15,7 @@
 #include "ForgeUI/Render/IForgeBackend.h"
 #include "ForgeUI/Font/IForgeFontRasterizer.h"
 #include "ForgeUI/Font/ForgeFont_MSDF.h"
+#include "ForgeUI/Font/ForgeDefaultFontData.h"
 #include "ForgeUI/Widgets/ForgeWidgets.h"
 #include "ForgeUI/Platform/ForgePlatform_GLFW.h"
 #include "ForgeUI/Backend/ForgeBackend_Null.h"

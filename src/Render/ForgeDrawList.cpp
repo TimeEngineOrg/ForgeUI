@@ -26,9 +26,20 @@ void ForgeDrawList::Initialize(ForgeArena* arena, uint32_t maxVertices, uint32_t
     m_MaxIndices = maxIndices;
     m_MaxCommands = maxCommands;
 
-    m_Vertices = static_cast<ForgeDrawVertex*>(m_Arena->Allocate(sizeof(ForgeDrawVertex) * m_MaxVertices, 16));
-    m_Indices = static_cast<uint32_t*>(m_Arena->Allocate(sizeof(uint32_t) * m_MaxIndices, 16));
-    m_Commands = static_cast<ForgeDrawCmd*>(m_Arena->Allocate(sizeof(ForgeDrawCmd) * m_MaxCommands, 16));
+    if (m_Arena) {
+        m_Vertices = static_cast<ForgeDrawVertex*>(m_Arena->Allocate(sizeof(ForgeDrawVertex) * m_MaxVertices, 16));
+        m_Indices = static_cast<uint32_t*>(m_Arena->Allocate(sizeof(uint32_t) * m_MaxIndices, 16));
+        m_Commands = static_cast<ForgeDrawCmd*>(m_Arena->Allocate(sizeof(ForgeDrawCmd) * m_MaxCommands, 16));
+    }
+
+    if (!m_Vertices || !m_Indices || !m_Commands) {
+        m_MaxVertices = 0;
+        m_MaxIndices = 0;
+        m_MaxCommands = 0;
+        m_Vertices = nullptr;
+        m_Indices = nullptr;
+        m_Commands = nullptr;
+    }
 
     Reset();
 }
@@ -143,42 +154,33 @@ void ForgeDrawList::AddQuad(const ForgeVec2& min, const ForgeVec2& max, const Fo
 }
 
 void ForgeDrawList::AddRect(const ForgeVec2& min, const ForgeVec2& max, uint32_t color) {
-    ForgeVec4 params(0.0f, 0.0f, 0.0f, static_cast<float>(ForgeShapeType::Rectangle));
-    AddQuad(min, max, ForgeVec2(0.0f, 0.0f), ForgeVec2(1.0f, 1.0f), color, ForgePipelineType::SDF_Shapes, static_cast<uint8_t>(ForgeShapeType::Rectangle), 0, params);
+    AddQuad(min, max, ForgeVec2(0, 0), ForgeVec2(1, 1), color, ForgePipelineType::SDF_Shapes, 0, 0, ForgeVec4(0, 0, 0, 0));
 }
 
 void ForgeDrawList::AddRoundedRect(const ForgeVec2& min, const ForgeVec2& max, float cornerRadius, uint32_t color) {
-    ForgeVec4 params(cornerRadius, 0.0f, 0.0f, static_cast<float>(ForgeShapeType::RoundedRect));
-    AddQuad(min, max, ForgeVec2(0.0f, 0.0f), ForgeVec2(1.0f, 1.0f), color, ForgePipelineType::SDF_Shapes, static_cast<uint8_t>(ForgeShapeType::RoundedRect), 0, params);
+    AddQuad(min, max, ForgeVec2(0, 0), ForgeVec2(1, 1), color, ForgePipelineType::SDF_Shapes, 0, 0, ForgeVec4(cornerRadius, 0, 0, 0));
 }
 
 void ForgeDrawList::AddBorder(const ForgeVec2& min, const ForgeVec2& max, float cornerRadius, float borderWidth, uint32_t borderColor) {
-    ForgeVec4 params(cornerRadius, borderWidth, 0.0f, static_cast<float>(ForgeShapeType::BorderOnly));
-    AddQuad(min, max, ForgeVec2(0.0f, 0.0f), ForgeVec2(1.0f, 1.0f), borderColor, ForgePipelineType::SDF_Shapes, static_cast<uint8_t>(ForgeShapeType::BorderOnly), 0, params);
+    AddQuad(min, max, ForgeVec2(0, 0), ForgeVec2(1, 1), borderColor, ForgePipelineType::SDF_Shapes, 1, 0, ForgeVec4(cornerRadius, borderWidth, 0, 0));
 }
 
 void ForgeDrawList::AddCircle(const ForgeVec2& center, float radius, uint32_t color) {
-    ForgeVec2 min(center.x - radius, center.y - radius);
-    ForgeVec2 max(center.x + radius, center.y + radius);
-    ForgeVec4 params(radius, 0.0f, 0.0f, static_cast<float>(ForgeShapeType::Circle));
-    AddQuad(min, max, ForgeVec2(0.0f, 0.0f), ForgeVec2(1.0f, 1.0f), color, ForgePipelineType::SDF_Shapes, static_cast<uint8_t>(ForgeShapeType::Circle), 0, params);
+    AddQuad(ForgeVec2(center.x - radius, center.y - radius), ForgeVec2(center.x + radius, center.y + radius), ForgeVec2(0, 0), ForgeVec2(1, 1), color, ForgePipelineType::SDF_Shapes, 2, 0, ForgeVec4(radius, 0, 0, 0));
 }
 
 void ForgeDrawList::AddShadow(const ForgeVec2& min, const ForgeVec2& max, float cornerRadius, float shadowBlur, uint32_t shadowColor) {
     ForgeVec2 pMin(min.x - shadowBlur, min.y - shadowBlur);
     ForgeVec2 pMax(max.x + shadowBlur, max.y + shadowBlur);
-    ForgeVec4 params(cornerRadius, 0.0f, shadowBlur, static_cast<float>(ForgeShapeType::DropShadow));
-    AddQuad(pMin, pMax, ForgeVec2(0.0f, 0.0f), ForgeVec2(1.0f, 1.0f), shadowColor, ForgePipelineType::SDF_Shapes, static_cast<uint8_t>(ForgeShapeType::DropShadow), 0, params);
+    AddQuad(pMin, pMax, ForgeVec2(0, 0), ForgeVec2(1, 1), shadowColor, ForgePipelineType::SDF_Shapes, 3, 0, ForgeVec4(cornerRadius, shadowBlur, 0, 0));
 }
 
 void ForgeDrawList::AddTexturedQuad(const ForgeVec2& min, const ForgeVec2& max, const ForgeVec2& uvMin, const ForgeVec2& uvMax, uint64_t textureHandle, uint32_t tintColor) {
-    ForgeVec4 params(0.0f, 0.0f, 0.0f, 0.0f);
-    AddQuad(min, max, uvMin, uvMax, tintColor, ForgePipelineType::Textured_Quad, 0, textureHandle, params);
+    AddQuad(min, max, uvMin, uvMax, tintColor, ForgePipelineType::Textured_Quad, 0, textureHandle, ForgeVec4(0, 0, 0, 0));
 }
 
 void ForgeDrawList::AddTextGlyph(const ForgeVec2& min, const ForgeVec2& max, const ForgeVec2& uvMin, const ForgeVec2& uvMax, uint64_t fontAtlasHandle, uint32_t color) {
-    ForgeVec4 params(0.0f, 0.0f, 0.0f, 0.0f);
-    AddQuad(min, max, uvMin, uvMax, color, ForgePipelineType::MSDF_Text, 0, fontAtlasHandle, params);
+    AddQuad(min, max, uvMin, uvMax, color, ForgePipelineType::MSDF_Text, 0, fontAtlasHandle, ForgeVec4(0, 0, 0, 0));
 }
 
 }

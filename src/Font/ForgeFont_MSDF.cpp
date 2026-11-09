@@ -1,4 +1,5 @@
 #include "ForgeUI/Font/ForgeFont_MSDF.h"
+#include "ForgeUI/Font/ForgeDefaultFontData.h"
 #include <cstring>
 
 namespace forge {
@@ -100,7 +101,7 @@ ForgeFont_MSDF::ForgeFont_MSDF()
     : m_Arena(nullptr)
     , m_AtlasTextureHandle(0)
     , m_LineHeight(18.0f)
-    , m_Ascent(14.0f)
+    , m_Ascent(12.0f)
     , m_Descent(4.0f) {
     for (int i = 0; i < 128; ++i) {
         m_StaticGlyphLoaded[i] = false;
@@ -113,35 +114,14 @@ void ForgeFont_MSDF::Initialize(ForgeArena* arena, uint64_t atlasTextureHandle) 
     m_Arena = arena;
     m_AtlasTextureHandle = atlasTextureHandle;
     m_LineHeight = 18.0f;
-    m_Ascent = 14.0f;
+    m_Ascent = 12.0f;
     m_Descent = 4.0f;
 
     m_AtlasAllocator.Initialize(m_Arena, 512, 512, 512);
 
-    for (int c = 32; c < 127; ++c) {
-        ForgeGlyphMetrics m;
-        m.codepoint = static_cast<uint32_t>(c);
-        m.advanceX = (c == ' ') ? 6.0f : ((c == '.' || c == ':' || c == 'i' || c == 'l' || c == '!' || c == '\'') ? 5.0f : ((c >= 'A' && c <= 'Z') ? 10.0f : 8.0f));
-        m.bearingX = 0.0f;
-        m.bearingY = 12.0f;
-        m.width = (c == ' ') ? 6.0f : 10.0f;
-        m.height = 14.0f;
-
-        int row = (c - 32) / 16;
-        int col = (c - 32) % 16;
-
-        float u0 = static_cast<float>(col * 32 + 5) / 512.0f;
-        float v0 = static_cast<float>(row * 32 + 4) / 512.0f;
-        float u1 = static_cast<float>(col * 32 + 5 + 15) / 512.0f;
-        float v1 = static_cast<float>(row * 32 + 4 + 21) / 512.0f;
-
-        m.uvMinX = u0;
-        m.uvMinY = v0;
-        m.uvMaxX = u1;
-        m.uvMaxY = v1;
-
-        m_StaticGlyphs[c] = m;
-        m_StaticGlyphLoaded[c] = true;
+    for (int c = 0; c < 128; ++c) {
+        m_StaticGlyphs[c] = s_DefaultFontMetrics[c];
+        m_StaticGlyphLoaded[c] = (c >= 32 && c < 127);
     }
 }
 
@@ -212,7 +192,7 @@ void ForgeFont_MSDF::AppendTextToDrawList(ForgeDrawList* drawList, const char* t
         uint32_t cp = static_cast<uint8_t>(*ptr);
         if (cp < 128 && m_StaticGlyphLoaded[cp]) {
             const ForgeGlyphMetrics& m = m_StaticGlyphs[cp];
-            if (cp != ' ') {
+            if (cp != ' ' && m.width > 0.0f && m.height > 0.0f) {
                 ForgeVec2 minPos(curX + m.bearingX * scale, curY + (m_Ascent - m.bearingY) * scale);
                 ForgeVec2 maxPos(minPos.x + m.width * scale, minPos.y + m.height * scale);
                 ForgeVec2 uvMin(m.uvMinX, m.uvMinY);
@@ -227,4 +207,4 @@ void ForgeFont_MSDF::AppendTextToDrawList(ForgeDrawList* drawList, const char* t
     }
 }
 
-}
+} // namespace forge

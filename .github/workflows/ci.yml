@@ -1,0 +1,58 @@
+name: ForgeUI CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Windows (MSVC 2022)"
+            os: windows-latest
+            build_type: Release
+            cmake_flags: "-DFORGE_BUILD_TESTS=ON -DFORGE_BUILD_WINDOWED_DEMO=ON"
+          - name: "Ubuntu (GCC - Linux)"
+            os: ubuntu-latest
+            build_type: Release
+            cmake_flags: "-DFORGE_BUILD_TESTS=ON -DFORGE_BUILD_WINDOWED_DEMO=ON"
+          - name: "Ubuntu (Clang - Linux)"
+            os: ubuntu-latest
+            build_type: Release
+            cxx_compiler: clang++
+            c_compiler: clang
+            cmake_flags: "-DFORGE_BUILD_TESTS=ON -DFORGE_BUILD_WINDOWED_DEMO=ON"
+          - name: "macOS (AppleClang)"
+            os: macos-latest
+            build_type: Release
+            cmake_flags: "-DFORGE_BUILD_TESTS=ON"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev
+
+      - name: Configure CMake
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          ${{ matrix.cxx_compiler && format('-DCMAKE_CXX_COMPILER={0} -DCMAKE_C_COMPILER={1}', matrix.cxx_compiler, matrix.c_compiler) || '' }}
+          ${{ matrix.cmake_flags }}
+
+      - name: Build Targets
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+
+      - name: Run Test Suite
+        working-directory: build
+        run: ctest --output-on-failure -C ${{ matrix.build_type }}

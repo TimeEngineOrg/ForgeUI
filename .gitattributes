@@ -1,0 +1,30 @@
+# Git attributes for ForgeUI
+* text=auto eol=lf
+
+# Windows scripts require CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts require LF
+*.sh text eol=lf
+
+# Binary media and assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.bmp binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+
+# Native binaries
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.lib binary
+*.a binary
+*.obj binary
+*.pdb binary
