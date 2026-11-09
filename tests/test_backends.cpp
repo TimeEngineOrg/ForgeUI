@@ -94,7 +94,7 @@ FORGE_TEST(Backends_OpenGLAndESValidation) {
 FORGE_TEST(Backends_OpenGL_StateBackupAndCustomLoader) {
     forge::ForgeBackend_OpenGL glBackend;
 
-    // Test custom loader registration and retrieval
+    // Custom loader registration
     auto testLoader = [](const char* name) -> void* {
         (void)name;
         return nullptr;
@@ -102,7 +102,7 @@ FORGE_TEST(Backends_OpenGL_StateBackupAndCustomLoader) {
     glBackend.SetCustomLoader(testLoader);
     if (glBackend.GetCustomLoader() != testLoader) return false;
 
-    // Test auto-clear setting: default must be false (crucial for engine scene preservation)
+    // Framebuffer auto-clear toggle
     if (glBackend.GetAutoClear() != false) return false;
     glBackend.SetAutoClear(true, forge::ForgeColor(0.2f, 0.4f, 0.6f, 1.0f));
     if (glBackend.GetAutoClear() != true) return false;
@@ -110,17 +110,17 @@ FORGE_TEST(Backends_OpenGL_StateBackupAndCustomLoader) {
     glBackend.SetAutoClear(false);
     if (glBackend.GetAutoClear() != false) return false;
 
-    // Test display scale setting and retrieval
+    // Display DPI scaling
     glBackend.SetDisplayScale(1.75f, 1.75f);
     float sx = 0.0f, sy = 0.0f;
     glBackend.GetDisplayScale(sx, sy);
     if (sx != 1.75f || sy != 1.75f) return false;
 
-    // Test backend stats initial state
+    // Telemetry stats
     const auto& stats = glBackend.GetBackendStats();
     if (stats.drawCallCount != 0 || stats.vertexCount != 0 || stats.indexCount != 0) return false;
 
-    // Test state backup/restore helpers can be safely invoked
+    // State isolation lifecycle
     glBackend.BackupGLState();
     glBackend.RestoreGLState();
 

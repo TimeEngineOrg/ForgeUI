@@ -623,7 +623,7 @@ void ForgeBackend_OpenGL::RenderDrawList(const ForgeDrawList* drawList) {
     glBindVertexArray_(0);
     glUseProgram_(0);
 
-    // Completely restore host OpenGL state
+    // Restore host OpenGL state
     RestoreGLState();
 }
 

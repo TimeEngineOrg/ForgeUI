@@ -295,16 +295,13 @@ int main(int argc, char** argv) {
             prevH = windowH;
         }
 
-        // Window-coordinate root bounds for immediate layout
         g_Context.SetRootDimensions(static_cast<float>(windowW), static_cast<float>(windowH));
         g_Context.BeginFrame();
         glfwPollEvents();
 
-        // High-DPI hardware backend synchronization
         g_Backend.SetDisplayScale(dpiScaleX, dpiScaleY);
         g_Backend.BeginFrame(static_cast<uint32_t>(fbW), static_cast<uint32_t>(fbH));
 
-        // Modern deep dark workspace clear
         glClearColor(0.07f, 0.08f, 0.11f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -397,13 +394,13 @@ int main(int argc, char** argv) {
             float canvasW = vpW - 32.0f;
             float canvasH = 210.0f;
 
-            // Sleek dark CAD/3D viewport canvas
+            // Viewport canvas
             uint32_t canvasBg = forge::ForgeColor(0.04f, 0.06f, 0.09f, 1.0f).ToRGBA8();
             uint32_t canvasBorder = forge::ForgeColor(0.18f, 0.24f, 0.32f, 1.0f).ToRGBA8();
             drawList.AddRoundedRect(forge::ForgeVec2(canvasX, canvasY), forge::ForgeVec2(canvasX + canvasW, canvasY + canvasH), 6.0f, canvasBg);
             drawList.AddBorder(forge::ForgeVec2(canvasX, canvasY), forge::ForgeVec2(canvasX + canvasW, canvasY + canvasH), 6.0f, 1.0f, canvasBorder);
 
-            // Subtle viewport background grid lines
+            // Viewport grid
             uint32_t gridCol = forge::ForgeColor(0.09f, 0.12f, 0.18f, 1.0f).ToRGBA8();
             for (float gx = canvasX + 30.0f; gx < canvasX + canvasW; gx += 30.0f) {
                 drawList.AddRect(forge::ForgeVec2(gx, canvasY + 1.0f), forge::ForgeVec2(gx + 1.0f, canvasY + canvasH - 1.0f), gridCol);
@@ -415,7 +412,7 @@ int main(int argc, char** argv) {
             float centerX = canvasX + canvasW * 0.5f;
             float centerY = canvasY + canvasH * 0.5f;
 
-            // Center crosshair
+            // Crosshair
             uint32_t crosshairCol = forge::ForgeColor(0.20f, 0.28f, 0.38f, 0.8f).ToRGBA8();
             drawList.AddRect(forge::ForgeVec2(centerX - 12.0f, centerY), forge::ForgeVec2(centerX + 12.0f, centerY + 1.0f), crosshairCol);
             drawList.AddRect(forge::ForgeVec2(centerX, centerY - 12.0f), forge::ForgeVec2(centerX + 1.0f, centerY + 12.0f), crosshairCol);
@@ -482,10 +479,8 @@ int main(int argc, char** argv) {
                 float bx = canvasX + b * (bandW + 4.0f);
                 float by = eqBarsY + (maxBarH - bandH);
 
-                // Background slot track
                 drawList.AddRoundedRect(forge::ForgeVec2(bx, eqBarsY), forge::ForgeVec2(bx + bandW, eqBarsY + maxBarH), 2.0f, slotBg);
 
-                // Vibrant Cyan-to-Violet gradient
                 float t = static_cast<float>(b) / static_cast<float>(numBands - 1);
                 float barR = 0.06f + t * 0.60f;
                 float barG = 0.75f - t * 0.38f;
